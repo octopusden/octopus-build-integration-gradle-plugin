@@ -1,0 +1,1 @@
+# octopus-components-registry-automation
