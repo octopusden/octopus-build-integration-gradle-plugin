@@ -1,1 +1,1 @@
-# octopus-components-registry-automation
+# octopus-build-integration-gradle-plugin
