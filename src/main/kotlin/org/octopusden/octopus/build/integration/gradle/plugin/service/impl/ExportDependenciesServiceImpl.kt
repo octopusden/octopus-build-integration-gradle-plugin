@@ -9,14 +9,14 @@ import org.octopusden.octopus.build.integration.gradle.plugin.model.ComponentSel
 import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
 import org.octopusden.octopus.build.integration.gradle.plugin.model.GradleDependenciesSelector
 import org.octopusden.octopus.build.integration.gradle.plugin.model.ModuleSelector
-import org.octopusden.octopus.build.integration.gradle.plugin.service.DependenciesExportService
+import org.octopusden.octopus.build.integration.gradle.plugin.service.ExportDependenciesService
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.core.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
 
-class DependenciesExportServiceImpl (
+class ExportDependenciesServiceImpl (
     private val componentsRegistryClient: ComponentsRegistryServiceClient
-) : DependenciesExportService {
+) : ExportDependenciesService {
 
     override fun getDependencies(
         project: Project,
@@ -27,19 +27,19 @@ class DependenciesExportServiceImpl (
     ): List<String> {
         validateManualComponents(config.components)
         val manualComponents = config.components.map { "${it.id}:${it.version}" }
-        val fromGradleComponents = if (config.gradleDependencies || includeAllDependencies) {
-            val artifactDeps = collectArtifactDependenciesFromGradle(
+        val gradleComponents = if (config.gradleDependencies || includeAllDependencies) {
+            val gradleArtifacts = collectArtifactDependenciesFromGradle(
                 project = project,
                 config = config,
                 includedConfigurations = includedConfigurations,
                 excludedConfigurations = excludedConfigurations,
                 includeAllDependencies = includeAllDependencies
             )
-            mapArtifactsToComponents(artifactDeps)
+            mapArtifactsToComponents(gradleArtifacts)
         } else {
             emptyList()
         }
-        return (manualComponents + fromGradleComponents).distinct().sorted()
+        return (manualComponents + gradleComponents).distinct().sorted()
     }
 
     private fun validateManualComponents(components: List<ComponentSelector>) {
@@ -71,7 +71,7 @@ class DependenciesExportServiceImpl (
                     .map { cfg -> subProject to cfg }
             }
         logger.info(
-            "DependenciesExportService: using configurations {} (excluded={})",
+            "DependenciesExportService: Using configurations {} (excluded={})",
             configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" },
             excludedConfigurations
         )
@@ -93,10 +93,10 @@ class DependenciesExportServiceImpl (
         selector: GradleDependenciesSelector,
         includeAllDependencies: Boolean
     ): List<ModuleComponentIdentifier> {
-        logger.info("DependenciesExportService: extract dependencies for configuration '{}'", configuration.name)
+        logger.info("DependenciesExportService: Extract dependencies for configuration '{}'", configuration.name)
         configuration.allDependencies.forEach { it ->
             if (it.version == null) {
-                logger.warn("Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
+                logger.warn("DependenciesExportService: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
                     it.group, it.name
                 )
             }
@@ -109,7 +109,7 @@ class DependenciesExportServiceImpl (
                 isTransitive = false
                 extendsFrom(configuration)
                 logger.info(
-                    "DependenciesExportService: created resolvable configuration '{}:{}' extending '{}'",
+                    "DependenciesExportService: Created resolvable configuration '{}:{}' extending '{}'",
                     project.path, resolvableName, configuration.name
                 )
             }
@@ -127,13 +127,13 @@ class DependenciesExportServiceImpl (
 
     private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
         val passed = supportedGroupIds.any { prefix -> id.group.startsWith(prefix) }
-        logger.info("DependenciesExportService: supportedGroupIds filter {} passed={}", id, passed)
+        logger.info("DependenciesExportService: SupportedGroupIds filter {} passed={}", id, passed)
         return passed
     }
 
     private fun matchesExcludeFilter(id: ModuleComponentIdentifier, selector: GradleDependenciesSelector): Boolean {
         val passed = selector.excludeModules.none { moduleMatchesSelector(id, it) }
-        logger.info("DependenciesExportService: exclude filter {} passed={}", id, passed)
+        logger.info("DependenciesExportService: Exclude filter {} passed={}", id, passed)
         return passed
     }
 
@@ -143,11 +143,11 @@ class DependenciesExportServiceImpl (
         includeAllDependencies: Boolean
     ): Boolean {
         if (includeAllDependencies) {
-            logger.info("DependenciesExportService: include filter {} passed={} (includeAllDependencies=true)", id, true)
+            logger.info("DependenciesExportService: Include filter {} passed={} (includeAllDependencies=true)", id, true)
             return true
         }
         val passed = selector.includeModules.any { moduleMatchesSelector(id, it) }
-        logger.info("DependenciesExportService: include filter {} passed={}", id, passed)
+        logger.info("DependenciesExportService: Include filter {} passed={}", id, passed)
         return passed
     }
 
@@ -163,7 +163,7 @@ class DependenciesExportServiceImpl (
         return response.artifactComponents.mapNotNull { artifactComponent ->
             val comp = artifactComponent.component
             if (comp == null) {
-                logger.error("DependenciesExportService: component not found by artifact {}", artifactComponent.artifact)
+                logger.error("DependenciesExportService: Component not found by artifact {}", artifactComponent.artifact)
                 null
             } else {
                 "${comp.id}:${comp.version}"
@@ -172,7 +172,7 @@ class DependenciesExportServiceImpl (
     }
 
     companion object {
-        private val logger = LoggerFactory.getLogger(DependenciesExportServiceImpl::class.java)
+        private val logger = LoggerFactory.getLogger(ExportDependenciesServiceImpl::class.java)
         private val versionRegex = Regex("\\d+([._-]\\d+)*")
     }
 

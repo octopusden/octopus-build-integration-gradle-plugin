@@ -5,7 +5,6 @@ import org.octopusden.octopus.build.integration.gradle.plugin.model.GradleDepend
 
 class ExportDependenciesBuilder {
 
-    var autoRegistration: Boolean = false
     private val componentsBuilder = ComponentsBuilder()
     private val gradleDependenciesBuilder = GradleDependenciesBuilder()
     private var gradleDependenciesEnabled = false
@@ -25,10 +24,8 @@ class ExportDependenciesBuilder {
             gradleDependenciesSelector = GradleDependenciesSelector(
                 includeModules = gradleDependenciesBuilder.includeModules.toList(),
                 excludeModules = gradleDependenciesBuilder.excludeModules.toList(),
-                excludeComponents = gradleDependenciesBuilder.excludeComponents.toList(),
                 includeAllDependencies = gradleDependenciesBuilder.includeAllDependencies
             ),
-            autoRegistration = autoRegistration,
             gradleDependencies = gradleDependenciesEnabled
         )
 
