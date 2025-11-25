@@ -12,7 +12,6 @@ plugins {
 }
 
 group = "org.octopusden.octopus"
-version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -32,20 +31,6 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:${properties["mockito-kotlin.version"]}")
 }
 
-val testParameters by lazy {
-    mapOf(
-        "octopus-build-integration.version" to project.version
-    )
-}
-
-tasks.test {
-    useJUnitPlatform()
-    dependsOn("publishToMavenLocal")
-    doFirst {
-        testParameters.forEach { systemProperty(it.key, it.value) }
-    }
-}
-
 java {
     withSourcesJar()
     withJavadocJar()
@@ -57,6 +42,81 @@ kotlin {
     compilerOptions.jvmTarget = JvmTarget.JVM_1_8
 }
 
+ext {
+    System.getenv().let {
+        set("signingRequired", it.containsKey("ORG_GRADLE_PROJECT_signingKey") && it.containsKey("ORG_GRADLE_PROJECT_signingPassword"))
+        set("dockerRegistry", it.getOrDefault("DOCKER_REGISTRY", properties["docker.registry"]))
+        set("octopusGithubDockerRegistry", it.getOrDefault("OCTOPUS_GITHUB_DOCKER_REGISTRY", project.properties["octopus.github.docker.registry"]))
+        set("okdActiveDeadlineSeconds", it.getOrDefault("OKD_ACTIVE_DEADLINE_SECONDS", properties["okd.active-deadline-seconds"]))
+        set("okdProject", it.getOrDefault("OKD_PROJECT", properties["okd.project"]))
+        set("okdClusterDomain", it.getOrDefault("OKD_CLUSTER_DOMAIN", properties["okd.cluster-domain"]))
+        set("okdWebConsoleUrl", (it.getOrDefault("OKD_WEB_CONSOLE_URL", properties["okd.web-console-url"]) as String).trimEnd('/'))
+    }
+}
+val mandatoryProperties = mutableListOf("dockerRegistry", "octopusGithubDockerRegistry", "okdActiveDeadlineSeconds", "okdProject", "okdClusterDomain")
+val undefinedProperties = mandatoryProperties.filter { (project.ext[it] as String).isBlank() }
+if (undefinedProperties.isNotEmpty()) {
+    throw IllegalArgumentException(
+        "Start gradle build with" +
+                (if (undefinedProperties.contains("dockerRegistry")) " -Pdocker.registry=..." else "") +
+                (if (undefinedProperties.contains("octopusGithubDockerRegistry")) " -Poctopus.github.docker.registry=..." else "") +
+                (if (undefinedProperties.contains("okdActiveDeadlineSeconds")) " -Pokd.active-deadline-seconds=..." else "") +
+                (if (undefinedProperties.contains("okdProject")) " -Pokd.project=..." else "") +
+                (if (undefinedProperties.contains("okdClusterDomain")) " -Pokd.cluster-domain=..." else "") +
+                " or set env variable(s):" +
+                (if (undefinedProperties.contains("dockerRegistry")) " DOCKER_REGISTRY" else "") +
+                (if (undefinedProperties.contains("octopusGithubDockerRegistry")) " OCTOPUS_GITHUB_DOCKER_REGISTRY" else "") +
+                (if (undefinedProperties.contains("okdActiveDeadlineSeconds")) " OKD_ACTIVE_DEADLINE_SECONDS" else "") +
+                (if (undefinedProperties.contains("okdProject")) " OKD_PROJECT" else "") +
+                (if (undefinedProperties.contains("okdClusterDomain")) " OKD_CLUSTER_DOMAIN" else "")
+    )
+}
+fun String.getExt() = project.ext[this].toString()
+
+val commonOkdParameters = mapOf(
+    "ACTIVE_DEADLINE_SECONDS" to "okdActiveDeadlineSeconds".getExt(),
+    "DOCKER_REGISTRY" to "dockerRegistry".getExt()
+)
+
+val testParameters by lazy {
+    mapOf(
+        "octopus-build-integration.version" to project.version,
+        "test.components-registry-host" to ocTemplate.getOkdHost("comp-reg")
+    )
+}
+
+tasks.test {
+    useJUnitPlatform()
+    dependsOn("publishToMavenLocal")
+    ocTemplate.isRequiredBy(this)
+    doFirst {
+        testParameters.forEach { systemProperty(it.key, it.value) }
+    }
+}
+
+ocTemplate {
+    workDir.set(layout.buildDirectory.dir("okd"))
+    clusterDomain.set("okdClusterDomain".getExt())
+    namespace.set("okdProject".getExt())
+    prefix.set("build-integr")
+
+    "okdWebConsoleUrl".getExt().takeIf { it.isNotBlank() }?.let {
+        webConsoleUrl.set(it)
+    }
+
+    service("comp-reg") {
+        templateFile.set(rootProject.layout.projectDirectory.file("okd/template/components-registry.yaml"))
+        val componentsRegistryWorkDir = layout.projectDirectory.dir("src/test/resources/components-registry-data").asFile.absolutePath
+        parameters.set(commonOkdParameters + mapOf(
+            "COMPONENTS_REGISTRY_SERVICE_VERSION" to properties["octopus-components-registry-service.version"] as String,
+            "AGGREGATOR_GROOVY_CONTENT" to file("${componentsRegistryWorkDir}/Aggregator.groovy").readText(),
+            "DEFAULTS_GROOVY_CONTENT" to file("${componentsRegistryWorkDir}/Defaults.groovy").readText(),
+            "TEST_COMPONENTS_GROOVY_CONTENT" to file("${componentsRegistryWorkDir}/TestComponents.groovy").readText(),
+            "APPLICATION_DEV_CONTENT" to layout.projectDirectory.dir("okd/config/components-registry-service.yaml").asFile.readText()
+        ))
+    }
+
+}
 gradlePlugin {
     plugins {
         create("buildIntegration") {

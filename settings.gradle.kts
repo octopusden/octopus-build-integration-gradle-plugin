@@ -1,3 +1,6 @@
+import java.net.InetAddress
+import java.util.zip.CRC32
+
 pluginManagement {
     plugins {
         kotlin("jvm") version settings.extra["kotlin.version"] as String
@@ -7,3 +10,9 @@ pluginManagement {
     }
 }
 rootProject.name = "octopus-build-integration-gradle-plugin"
+
+val defaultVersion = with(CRC32()) {
+    update(InetAddress.getLocalHost().hostName.toByteArray())
+    value
+}.toString() + "-SNAPSHOT"
+gradle.beforeProject { project.version = gradle.startParameter.projectProperties["version"] ?: defaultVersion }
