@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.Duration
 
 plugins {
     kotlin("jvm")
@@ -6,6 +7,8 @@ plugins {
     `maven-publish`
     signing
     id("io.github.gradle-nexus.publish-plugin")
+    id("com.jfrog.artifactory")
+    id("org.octopusden.octopus.oc-template")
 }
 
 group = "org.octopusden.octopus"
@@ -61,6 +64,66 @@ gradlePlugin {
             displayName = "Octopus Build Integration Gradle Plugin"
             description = "Gradle plugin for Octopus build integration"
             implementationClass = "org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin"
+        }
+    }
+}
+
+artifactory {
+    publish {
+        val baseUrl = System.getenv().getOrDefault("ARTIFACTORY_URL", project.properties["artifactoryUrl"])
+        if (baseUrl != null) {
+            contextUrl = "$baseUrl/artifactory"
+        }
+        repository {
+            repoKey = "rnd-maven-dev-local"
+            username = System.getenv().getOrDefault("ARTIFACTORY_DEPLOYER_USERNAME", project.properties["NEXUS_USER"]).toString()
+            password = System.getenv().getOrDefault("ARTIFACTORY_DEPLOYER_PASSWORD", project.properties["NEXUS_PASSWORD"]).toString()
+        }
+        defaults {
+            publications("ALL_PUBLICATIONS")
+        }
+    }
+}
+
+nexusPublishing {
+    repositories {
+        sonatype {
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
+            username.set(System.getenv("MAVEN_USERNAME"))
+            password.set(System.getenv("MAVEN_PASSWORD"))
+        }
+    }
+    transitionCheckOptions {
+        maxRetries.set(60)
+        delayBetween.set(Duration.ofSeconds(30))
+    }
+}
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            pom {
+                name.set(project.name)
+                description.set(project.description)
+                url = "https://github.com/octopusden/octopus-build-integration-gradle-plugin.git"
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/octopusden/octopus-build-integration-gradle-plugin.git")
+                    connection.set("scm:git://github.com/octopusden/octopus-build-integration-gradle-plugin.git")
+                }
+                developers {
+                    developer {
+                        id.set("octopus")
+                        name.set("octopus")
+                    }
+                }
+            }
         }
     }
 }
