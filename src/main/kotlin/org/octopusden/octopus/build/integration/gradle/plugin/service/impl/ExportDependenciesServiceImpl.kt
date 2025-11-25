@@ -27,7 +27,7 @@ class ExportDependenciesServiceImpl (
     ): List<String> {
         validateManualComponents(config.components)
         val manualComponents = config.components.map { "${it.id}:${it.version}" }
-        val gradleComponents = if (config.gradleDependencies || includeAllDependencies) {
+        val gradleComponents = if (config.gradleDependenciesEnabled || includeAllDependencies) {
             val gradleArtifacts = collectArtifactDependenciesFromGradle(
                 project = project,
                 config = config,
@@ -60,7 +60,7 @@ class ExportDependenciesServiceImpl (
         excludedConfigurations: List<String>,
         includeAllDependencies: Boolean
     ): Set<ArtifactDependency> {
-        val selector = config.gradleDependenciesSelector
+        val gradleDependenciesSelector = config.gradleDependencies
         val configurationsByProject: List<Pair<Project, Configuration>> =
             project.rootProject.allprojects.flatMap { subProject ->
                 subProject.configurations
@@ -79,7 +79,7 @@ class ExportDependenciesServiceImpl (
             extractDependenciesFromConfiguration(
                 project = subProject,
                 configuration = config,
-                selector = selector,
+                gradleDependenciesSelector = gradleDependenciesSelector,
                 includeAllDependencies = includeAllDependencies
             )
         }
@@ -90,7 +90,7 @@ class ExportDependenciesServiceImpl (
     private fun extractDependenciesFromConfiguration(
         project: Project,
         configuration: Configuration,
-        selector: GradleDependenciesSelector,
+        gradleDependenciesSelector: GradleDependenciesSelector,
         includeAllDependencies: Boolean
     ): List<ModuleComponentIdentifier> {
         logger.info("DependenciesExportService: Extract dependencies for configuration '{}'", configuration.name)
@@ -121,8 +121,8 @@ class ExportDependenciesServiceImpl (
         val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
         return allResolvedIds
             .filter { matchesSupportedGroup(it, supportedGroupIds) }
-            .filter { matchesExcludeFilter(it, selector) }
-            .filter { matchesIncludeFilter(it, selector, includeAllDependencies) }
+            .filter { matchesExcludeFilter(it, gradleDependenciesSelector) }
+            .filter { matchesIncludeFilter(it, gradleDependenciesSelector, includeAllDependencies) }
     }
 
     private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {

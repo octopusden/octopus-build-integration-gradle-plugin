@@ -38,7 +38,7 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
         val extension = project.extensions.findByType(BuildIntegrationExtension::class.java)
             ?: throw GradleException("BuildIntegrationExtension is not registered!")
         val exportConfig = extension.buildConfig()
-        val finalIncludeAllDependencies = includeAllDependencies ?: exportConfig.gradleDependenciesSelector.includeAllDependencies
+        val finalIncludeAllDependencies = includeAllDependencies ?: exportConfig.gradleDependencies.includeAllDependencies
         logger.info(
             "ExportDependenciesToTeamcity started. excludedConfigurations={}, includedConfigurations={}, includeAllDependencies={}, componentsRegistryUrl={}",
             excludedConfigurations.get(),

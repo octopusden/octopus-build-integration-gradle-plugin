@@ -21,12 +21,12 @@ class ExportDependenciesBuilder {
     fun build(): ExportDependenciesConfig =
         ExportDependenciesConfig(
             components = componentsBuilder.components.toList(),
-            gradleDependenciesSelector = GradleDependenciesSelector(
+            gradleDependencies = GradleDependenciesSelector(
                 includeModules = gradleDependenciesBuilder.includeModules.toList(),
                 excludeModules = gradleDependenciesBuilder.excludeModules.toList(),
                 includeAllDependencies = gradleDependenciesBuilder.includeAllDependencies
             ),
-            gradleDependencies = gradleDependenciesEnabled
+            gradleDependenciesEnabled = gradleDependenciesEnabled
         )
 
 }
