@@ -90,7 +90,7 @@ By default it uses:
 * `includedConfigurations = ["runtimeElements", "runtimeClasspath"]`
 * `excludedConfigurations = []`
 
-Meaning that from all Gradle projects in the build, only dependencies from: `runtimeElements`, and `runtimeClasspath`.
+This means that from all Gradle projects in the build, only dependencies from: `runtimeElements`, and `runtimeClasspath`.
 Are considered, except those explicitly excluded via `excludedConfigurations`.
 
 You can override these settings at the task level:
