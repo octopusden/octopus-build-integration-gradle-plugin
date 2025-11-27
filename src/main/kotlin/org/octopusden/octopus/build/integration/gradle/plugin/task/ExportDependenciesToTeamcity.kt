@@ -62,11 +62,11 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
         val value = dependencies.joinToString(",")
         logger.info("ExportDependenciesToTeamcity: resulting dependencies: {}", value)
         val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
-        val effectiveConfigs = includedConfigurations.get().filterNot { excludedConfigurations.get().contains(it) }
+        val configs = includedConfigurations.get().filterNot { excludedConfigurations.get().contains(it) }
         logger.info(
             "ExportDependenciesToTeamcity: only {}.* dependencies from {} will be registered by release management",
             supportedGroupIds,
-            effectiveConfigs
+            configs
         )
         val escaped = escapeTeamCityValue(value)
         println("##teamcity[setParameter name='DEPENDENCIES' value='$escaped']")

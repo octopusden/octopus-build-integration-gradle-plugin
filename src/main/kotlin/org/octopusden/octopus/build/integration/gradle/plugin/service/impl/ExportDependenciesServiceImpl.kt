@@ -86,7 +86,6 @@ class ExportDependenciesServiceImpl (
         return moduleIds.map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
     }
 
-
     private fun extractDependenciesFromConfiguration(
         project: Project,
         configuration: Configuration,
@@ -101,7 +100,7 @@ class ExportDependenciesServiceImpl (
                 )
             }
         }
-        val resolvableName = configuration.name + "Resolvable"
+        val resolvableName = "${configuration.name}Resolvable"
         val resolvableConfig = project.configurations.findByName(resolvableName)
             ?: project.configurations.create(resolvableName).apply {
                 isCanBeResolved = true

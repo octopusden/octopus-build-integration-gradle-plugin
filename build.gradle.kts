@@ -1,3 +1,4 @@
+import com.platformlib.plugins.gradle.wrapper.task.DockerTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.Duration
 
@@ -9,6 +10,8 @@ plugins {
     id("io.github.gradle-nexus.publish-plugin")
     id("com.jfrog.artifactory")
     id("org.octopusden.octopus.oc-template")
+    id("org.asciidoctor.jvm.convert")
+    id("com.platformlib.gradle-wrapper")
 }
 
 group = "org.octopusden.octopus"
@@ -20,8 +23,6 @@ repositories {
 
 dependencies {
     implementation("org.octopusden.octopus.infrastructure:components-registry-service-client:${properties["octopus-components-registry-service.version"]}")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:${properties["jackson.version"]}")
-    implementation("com.fasterxml.jackson.core:jackson-databind:${properties["jackson.version"]}")
     testApi("com.platformlib:platformlib-process-local:${properties["platformlib-process.version"]}")
     testImplementation("org.assertj:assertj-core:${project.extra["assertj.version"]}")
     testImplementation(platform("org.junit:junit-bom:${project.extra["junit-jupiter.version"]}"))
@@ -29,6 +30,11 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.mockito.kotlin:mockito-kotlin:${properties["mockito-kotlin.version"]}")
+    constraints {
+        // These constraints are required because they are needed by components-registry-client.
+        implementation("com.fasterxml.jackson.core:jackson-annotations:${properties["jackson.version"]}")
+        implementation("com.fasterxml.jackson.core:jackson-databind:${properties["jackson.version"]}")
+    }
 }
 
 java {
@@ -64,8 +70,8 @@ val testParameters by lazy {
     mapOf(
         "octopus-build-integration.version" to project.version,
         "test.components-registry-host" to ocTemplate.getOkdHost("comp-reg"),
-        "test.java8-home" to properties["test.java8-home"],
-        "test.java17-home" to properties["test.java17-home"]
+        "test.java8-home" to properties["test.java8-home"] as String,
+        "test.java17-home" to properties["test.java17-home"] as String
     )
 }
 
@@ -101,6 +107,7 @@ ocTemplate {
     }
 
 }
+
 gradlePlugin {
     plugins {
         create("buildIntegration") {
@@ -172,3 +179,37 @@ publishing {
     }
 }
 
+tasks.asciidoctor {
+    sources {
+        include("**/*.adoc")
+    }
+    asciidoctorj {
+        attributes(
+            mapOf("version-label" to project.version)
+        )
+    }
+}
+
+tasks.register<DockerTask>("publishToWiki") {
+    val wikiUsername: String = (project.findProperty("wiki-username") as String?) ?: System.getenv("WIKI_USERNAME") ?: ""
+    val wikiPassword: String = (project.findProperty("wiki-password") as String?) ?: System.getenv("WIKI_PASSWORD") ?: ""
+    val wikiUrl = (project.findProperty("wiki-url") as String?) ?: System.getenv("WIKI_URL") ?: ""
+    val ancestorId = (project.findProperty("build-integration-gradle-plugin-page-id") as String?) ?: System.getenv("BUILD_INTEGRATION_GRADLE_PLUGIN_PAGE_ID") ?: ""
+    image = "${"dockerRegistry".getExt()}/confluencepublisher/confluence-publisher:0.17.1"
+    dockerOptions = listOf("--network", "host")
+    bindMounts = listOf("${file("docs")}:/var/asciidoc-root-folder")
+    env = mapOf(
+        "ROOT_CONFLUENCE_URL" to wikiUrl,
+        "SKIP_SSL_VERIFICATION" to "true",
+        "MAX_REQUESTS_PER_SECOND" to "10",
+        "USERNAME" to wikiUsername,
+        "PASSWORD" to wikiPassword,
+        "SPACE_KEY" to "RD",
+        "ANCESTOR_ID" to ancestorId,
+        "PUBLISHING_STRATEGY" to "REPLACE_ANCESTOR",
+        "ORPHAN_REMOVAL_STRATEGY" to "KEEP_ORPHANS",
+        "NOTIFY_WATCHERS" to "false",
+        "ATTRIBUTES" to """{"version-label": "${project.version}"}""",
+        "CONVERT_ONLY" to "false"
+    )
+}
