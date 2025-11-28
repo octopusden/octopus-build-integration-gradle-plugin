@@ -12,7 +12,7 @@ import org.octopusden.octopus.components.registry.client.ComponentsRegistryServi
 import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
 
-abstract class ExportDependenciesToTeamcity : DefaultTask() {
+abstract class ExportDependencies : DefaultTask() {
 
     private val scanEnabled = project.findProperty(SCAN_ENABLED_PROPERTY)?.toString()?.toBoolean()
 
@@ -22,7 +22,7 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
 
     private val configurations = project.findProperty(CONFIGURATIONS_PROPERTY)?.toString()?.toRegex()
 
-    private val teamCityParameter = project.findProperty(TEAMCITY_PARAMETER_PROPERTY)?.toString()
+    private val outputFile = project.findProperty(OUTPUT_FILE_PROPERTY)?.toString()
 
     @TaskAction
     fun exportDependencies() {
@@ -44,13 +44,15 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
         val exportService: ExportDependenciesService = ExportDependenciesServiceImpl(componentsRegistryClient)
         val dependencies = exportService.getDependencies(project, config)
         if (dependencies.isEmpty()) {
-            logger.info("ExportDependenciesToTeamcity: no dependencies to export, ${config.teamCityParameter} parameter will not be set")
+            logger.info("ExportDependenciesToTeamcity: no dependencies to export, ${config.outputFile} parameter will not be set")
             return
         }
         val value = dependencies.joinToString(",")
         logger.info("ExportDependenciesToTeamcity: resulting dependencies: {}", value)
-        val escaped = escapeTeamCityValue(value)
-        println("##teamcity[setParameter name='${config.teamCityParameter}' value='$escaped']")
+        val outputFile = project.layout.buildDirectory.file(config.outputFile).get().asFile
+        outputFile.parentFile.mkdirs()
+        outputFile.writeText(value)
+        logger.info("Exported dependencies written to: ${outputFile.absolutePath}")
     }
 
     private fun buildExportDependenciesConfig(config: ExportDependenciesConfig): ExportDependenciesConfig {
@@ -62,17 +64,9 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
                 projects = projects ?: config.scan.projects,
                 configurations = configurations ?: config.scan.configurations
             ),
-            teamCityParameter = teamCityParameter ?: config.teamCityParameter
+            outputFile = outputFile ?: config.outputFile
         )
     }
-
-    private fun escapeTeamCityValue(value: String): String =
-        value.replace("|", "||")
-            .replace("'", "|'")
-            .replace("[", "|[")
-            .replace("]", "|]")
-            .replace("\n", "|n")
-            .replace("\r", "|r")
 
     private fun createComponentsRegistryClient(componentsRegistryUrl: String): ComponentsRegistryServiceClient =
         ClassicComponentsRegistryServiceClient(
@@ -86,6 +80,6 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
         const val COMPONENT_REGISTRY_URL_PROPERTY = "buildIntegration.dependencies.scan.componentsRegistryUrl"
         const val PROJECTS_PROPERTY = "buildIntegration.dependencies.scan.projects"
         const val CONFIGURATIONS_PROPERTY = "buildIntegration.dependencies.scan.configurations"
-        const val TEAMCITY_PARAMETER_PROPERTY = "buildIntegration.dependencies.teamCityParameter"
+        const val OUTPUT_FILE_PROPERTY = "buildIntegration.dependencies.outputFile"
     }
 }

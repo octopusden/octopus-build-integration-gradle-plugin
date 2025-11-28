@@ -6,7 +6,7 @@ import org.octopusden.octopus.build.integration.gradle.plugin.model.ScanConfig
 
 class DependenciesExtension {
 
-    private var teamCityParameter = "DEPENDENCIES"
+    private var outputFile: String? = null
 
     private val components = mutableListOf<Component>()
     private val scanExtension = ScanExtension()
@@ -15,8 +15,8 @@ class DependenciesExtension {
         components += Component(name, version)
     }
 
-    fun setTeamCityParameter(value: String) {
-        teamCityParameter = value
+    fun setOutputFile(value: String) {
+        outputFile = value
     }
 
     fun scan(block: ScanExtension.() -> Unit) {
@@ -28,12 +28,18 @@ class DependenciesExtension {
         ExportDependenciesConfig(
             components = components,
             scan = ScanConfig(
-                enabled = scanExtension.isEnabled(),
-                componentsRegistryUrl = scanExtension.getComponentsRegistryUrl(),
-                projects = scanExtension.getProjects().toRegex(),
-                configurations = scanExtension.getConfigurations().toRegex()
+                enabled = scanExtension.isEnabled() ?: DEFAULT_ENABLED,
+                componentsRegistryUrl = scanExtension.getComponentsRegistryUrl() ?: "",
+                projects = scanExtension.getProjects()?.toRegex() ?: DEFAULT_PROJECTS.toRegex(),
+                configurations = scanExtension.getConfigurations()?.toRegex() ?: DEFAULT_CONFIGURATIONS.toRegex()
             ),
-            teamCityParameter = teamCityParameter
+            outputFile = outputFile ?: DEFAULT_OUTPUT_FILE
         )
 
+    companion object {
+        const val DEFAULT_OUTPUT_FILE = "export-dependencies-report.txt"
+        const val DEFAULT_ENABLED = false
+        const val DEFAULT_PROJECTS = ".+"
+        const val DEFAULT_CONFIGURATIONS = "runtime.+"
+    }
 }

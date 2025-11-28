@@ -57,6 +57,9 @@ class ExportDependenciesServiceImpl (
     }
 
     private fun extractDependenciesFromConfiguration(project: Project, config: ExportDependenciesConfig, gradleConfig: Configuration): List<ModuleComponentIdentifier> {
+        requireNotNull(componentsRegistryClient) {
+            "ComponentsRegistryServiceClient must be provided when scan is enabled"
+        }
         logger.info("DependenciesExportService: Extract dependencies for configuration '{}'", gradleConfig.name)
         gradleConfig.allDependencies.forEach {
             if (it.version == null) {
@@ -83,7 +86,7 @@ class ExportDependenciesServiceImpl (
                 it.selected.id as ModuleComponentIdentifier
             } else null
         }
-        val supportedGroupIds = componentsRegistryClient!!.getSupportedGroupIds()
+        val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
         return allResolvedIds
             .filter { matchesSupportedGroup(it, supportedGroupIds) }
             .filter { matchesProjects(it, config.scan.projects) }
@@ -102,8 +105,11 @@ class ExportDependenciesServiceImpl (
     }
 
     private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<String> {
+        requireNotNull(componentsRegistryClient) {
+            "ComponentsRegistryServiceClient must be provided when scan is enabled"
+        }
         if (artifacts.isEmpty()) return emptyList()
-        val response = componentsRegistryClient!!.findArtifactComponentsByArtifacts(artifacts)
+        val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
         return response.artifactComponents.mapNotNull { artifactComponent ->
             val comp = artifactComponent.component
             if (comp == null) {

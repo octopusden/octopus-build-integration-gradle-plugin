@@ -2,10 +2,10 @@ package org.octopusden.octopus.build.integration.gradle.plugin.extension
 
 class ScanExtension {
 
-    private var enabled = false
-    private var componentsRegistryUrl = ""
-    private var projects = ".+"
-    private var configurations = "runtime.+"
+    private var enabled: Boolean? = null
+    private var componentsRegistryUrl: String? = null
+    private var projects: String? = null
+    private var configurations: String? = null
 
     fun setEnabled(value: Boolean) { enabled = value }
     fun setComponentsRegistryUrl(value: String) { componentsRegistryUrl = value }

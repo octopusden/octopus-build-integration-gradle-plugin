@@ -101,13 +101,13 @@ Default value is "runtime.+".
 
 `buildIntegration.dependencies.scan.configurations`
 
-| `setTeamCityParameter()`
+| `setOutputFile()`
 | Name of the TeamCity parameter to which the plugin will write the resulting dependency list.
 
-Default value is "DEPENDENCIES"
+Default value is "export-dependencies-report.txt"
 | Yes
 
-`buildIntegration.dependencies.teamCityParameter`
+`buildIntegration.dependencies.outputFile`
 |===
 
 === Configuring
@@ -136,7 +136,7 @@ buildIntegration {
             // only project "service-a"
             setProjects("service-a")
 
-            // service-a or service-b
+            // service-a and service-b
             setProjects("(service-a|service-b)")
 
             // exclude legacy-* projects
@@ -153,15 +153,15 @@ buildIntegration {
 buildIntegration {
     dependencies {
         scan {
-            // include only runtimeClasspath and compileClasspath dependencies
+            // include runtimeClasspath and compileClasspath dependencies
             setConfigurations("(runtimeClasspath|compileClasspath)")
 
-            // include only test dependencies
-            setConfigurations("test.+")
+            // exclude test dependencies
+            setConfigurations("^(?!test-).*")
         }
     }
 }
 ----
 
 '''
-The latest version of the plugin is  {version-label}
+The latest version of the plugin is {version-label}
