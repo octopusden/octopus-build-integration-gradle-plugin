@@ -4,7 +4,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.BuildIntegrationExtension
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependencies
+import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask
 import org.slf4j.LoggerFactory
 
 class BuildIntegrationGradlePlugin : Plugin<Project> {
@@ -16,12 +16,12 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
         registerExportDependenciesToTeamcityTask(rootProject)
     }
 
-    private fun registerExportDependenciesToTeamcityTask(rootProject: Project): TaskProvider<ExportDependencies> {
+    private fun registerExportDependenciesToTeamcityTask(rootProject: Project): TaskProvider<ExportDependenciesTask> {
         val task = rootProject.tasks.findByName(EXPORT_DEPENDENCIES_TASK_NAME)
         return if (task != null) {
-            rootProject.tasks.named(EXPORT_DEPENDENCIES_TASK_NAME, ExportDependencies::class.java)
+            rootProject.tasks.named(EXPORT_DEPENDENCIES_TASK_NAME, ExportDependenciesTask::class.java)
         } else {
-            rootProject.tasks.register(EXPORT_DEPENDENCIES_TASK_NAME, ExportDependencies::class.java)
+            rootProject.tasks.register(EXPORT_DEPENDENCIES_TASK_NAME, ExportDependenciesTask::class.java)
                 .also { logger.info("Registered task {}", EXPORT_DEPENDENCIES_TASK_NAME) }
         }
     }

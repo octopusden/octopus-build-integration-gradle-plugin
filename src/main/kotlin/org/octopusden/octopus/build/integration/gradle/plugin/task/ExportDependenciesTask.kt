@@ -15,7 +15,7 @@ import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsR
 import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
 import java.util.regex.PatternSyntaxException
 
-abstract class ExportDependencies : DefaultTask() {
+abstract class ExportDependenciesTask : DefaultTask() {
 
     private val scanEnabled = project.findProperty(SCAN_ENABLED_PROPERTY)?.toString()?.toBoolean()
 
@@ -32,26 +32,26 @@ abstract class ExportDependencies : DefaultTask() {
         val extension = project.extensions.findByType(BuildIntegrationExtension::class.java)
             ?: throw GradleException("BuildIntegrationExtension is not registered!")
         val config = buildExportDependenciesConfig(extension.buildConfig())
-        logger.info("ExportDependencies started. config={}", config)
+        logger.info("ExportDependenciesTask started. config={}", config)
         val componentsRegistryClient = if (config.scan.enabled) {
             if (config.scan.componentsRegistryUrl.isBlank()) {
                 throw GradleException("$SCAN_ENABLED_PROPERTY=true, but componentsRegistryUrl is null or empty")
             }
             val client = createComponentsRegistryClient(config.scan.componentsRegistryUrl)
-            logger.info("ExportDependencies: supported group ids: {}", client.getSupportedGroupIds())
+            logger.info("ExportDependenciesTask: supported group ids: {}", client.getSupportedGroupIds())
             client
         } else {
-            logger.info("ExportDependencies: scan disabled, components registry client will not be created")
+            logger.info("ExportDependenciesTask: scan disabled, components registry client will not be created")
             null
         }
         val exportService: ExportDependenciesService = ExportDependenciesServiceImpl(componentsRegistryClient)
         val dependencies = exportService.getDependencies(project, config)
         val jsonResult = ObjectMapper().apply { enable(SerializationFeature.INDENT_OUTPUT) }.writeValueAsString(dependencies)
-        logger.info("ExportDependencies: resulting dependencies: {}", dependencies)
+        logger.info("ExportDependenciesTask: resulting dependencies: {}", dependencies)
         val outputFile = project.layout.buildDirectory.file(config.outputFile).get().asFile
         outputFile.parentFile.mkdirs()
         outputFile.writeText(jsonResult)
-        logger.info("ExportDependencies: exported dependencies written to: ${outputFile.absolutePath}")
+        logger.info("ExportDependenciesTask: exported dependencies written to: ${outputFile.absolutePath}")
     }
 
     private fun buildExportDependenciesConfig(config: ExportDependenciesConfig): ExportDependenciesConfig {

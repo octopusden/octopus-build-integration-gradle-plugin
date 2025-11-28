@@ -11,7 +11,7 @@ import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGr
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Companion.DEFAULT_OUTPUT_FILE
 import org.octopusden.octopus.build.integration.gradle.plugin.model.Component
 import org.octopusden.octopus.build.integration.gradle.plugin.runner.gradleProcessInstance
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependencies.Companion.COMPONENT_REGISTRY_URL_PROPERTY
+import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.COMPONENT_REGISTRY_URL_PROPERTY
 import java.util.stream.Stream
 
 class ExportDependenciesToTeamcityTest {

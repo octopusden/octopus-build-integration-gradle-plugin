@@ -3,7 +3,7 @@ package org.octopusden.octopus.build.integration.gradle.plugin.extension
 import org.octopusden.octopus.build.integration.gradle.plugin.model.Component
 import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
 import org.octopusden.octopus.build.integration.gradle.plugin.model.ScanConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependencies.Companion.regexProcessing
+import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.regexProcessing
 
 class DependenciesExtension {
 
