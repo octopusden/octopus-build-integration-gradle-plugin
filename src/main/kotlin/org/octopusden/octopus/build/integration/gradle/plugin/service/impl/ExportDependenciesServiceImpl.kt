@@ -16,9 +16,8 @@ class ExportDependenciesServiceImpl (
     private val componentsRegistryClient: ComponentsRegistryServiceClient?
 ) : ExportDependenciesService {
 
-    override fun getDependencies(project: Project, config: ExportDependenciesConfig): List<String> {
+    override fun getDependencies(project: Project, config: ExportDependenciesConfig): List<Component> {
         validateManualComponents(config.components)
-        val manualComponents = config.components.map { "${it.name}:${it.version}" }
         val gradleComponents = if (config.scan.enabled) {
             val artifacts = getDependenciesFromGradle(project, config)
                 .map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
@@ -26,10 +25,12 @@ class ExportDependenciesServiceImpl (
         } else {
             emptyList()
         }
-        return (manualComponents + gradleComponents).distinct().sorted()
+        return (config.components + gradleComponents)
+            .distinct()
+            .sortedWith(compareBy<Component> { it.name }.thenBy { it.version })
     }
 
-    private fun validateManualComponents(components: List<Component>) {
+    private fun validateManualComponents(components: Set<Component>) {
         val invalidComponents = components
             .filter { !it.version.matches(versionRegex) }
             .map { "DependenciesExportService: Version format not valid ${it.name}:${it.version}" }
@@ -104,19 +105,19 @@ class ExportDependenciesServiceImpl (
         return passed
     }
 
-    private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<String> {
+    private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<Component> {
         requireNotNull(componentsRegistryClient) {
             "ComponentsRegistryServiceClient must be provided when scan is enabled"
         }
         if (artifacts.isEmpty()) return emptyList()
         val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
-        return response.artifactComponents.mapNotNull { artifactComponent ->
-            val comp = artifactComponent.component
+        return response.artifactComponents.mapNotNull {
+            val comp = it.component
             if (comp == null) {
-                logger.error("DependenciesExportService: Component not found by artifact {}", artifactComponent.artifact)
+                logger.error("DependenciesExportService: Component not found by artifact {}", it.artifact)
                 null
             } else {
-                "${comp.id}:${comp.version}"
+                Component(comp.id, comp.version)
             }
         }
     }

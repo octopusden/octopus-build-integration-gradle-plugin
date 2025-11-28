@@ -23,6 +23,8 @@ repositories {
 
 dependencies {
     implementation("org.octopusden.octopus.infrastructure:components-registry-service-client:${properties["octopus-components-registry-service.version"]}")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:${properties["jackson.version"]}")
+    implementation("com.fasterxml.jackson.core:jackson-databind:${properties["jackson.version"]}")
     testApi("com.platformlib:platformlib-process-local:${properties["platformlib-process.version"]}")
     testImplementation("org.assertj:assertj-core:${project.extra["assertj.version"]}")
     testImplementation(platform("org.junit:junit-bom:${project.extra["junit-jupiter.version"]}"))
@@ -30,11 +32,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.mockito.kotlin:mockito-kotlin:${properties["mockito-kotlin.version"]}")
-    constraints {
-        // These constraints are required because they are needed by components-registry-client.
-        implementation("com.fasterxml.jackson.core:jackson-annotations:${properties["jackson.version"]}")
-        implementation("com.fasterxml.jackson.core:jackson-databind:${properties["jackson.version"]}")
-    }
 }
 
 java {

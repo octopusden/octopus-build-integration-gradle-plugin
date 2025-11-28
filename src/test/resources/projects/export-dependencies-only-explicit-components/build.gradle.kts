@@ -5,8 +5,8 @@ plugins {
 
 buildIntegration {
     dependencies {
-        add("a", "1.0.0")
-        add("b", "1.1.0")
+        add("component_a", "1.0.0")
+        add("component_b", "1.1.0")
     }
 }
 

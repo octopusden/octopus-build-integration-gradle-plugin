@@ -6,7 +6,7 @@
 
 == Purpose of the Plugin
 
-`Octopus Build Integration Gradle Plugin` adds the ability to export the list of components your project depends on into a TeamCity build parameter.
+`Octopus Build Integration Gradle Plugin` adds the ability to export the list of components your project depends on into a file.
 
 The list is formed based on:
 
@@ -58,6 +58,25 @@ It is important to use the plugin version parameter name **exactly as specified 
 
 This ensures that TeamCity automatically injects the latest version of the plugin for each build.
 ====
+
+To ensure that the task runs automatically, make it depend on a task that always executes, such as `assemble`:
+
+.build.gradle.kts
+[source,kotlin]
+----
+tasks.named("assemble") {
+    dependsOn("exportDependencies")
+}
+
+----
+
+.build.gradle
+[source,groovy]
+----
+tasks.named("assemble") {
+    dependsOn "exportDependencies"
+}
+----
 
 == Plugin Configuration
 === DSL Reference
