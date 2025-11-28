@@ -33,7 +33,7 @@ class ExportDependenciesServiceImpl (
     private fun validateManualComponents(components: Set<Component>) {
         val invalidComponents = components
             .filter { !it.version.matches(versionRegex) }
-            .map { "DependenciesExportService: Version format not valid ${it.name}:${it.version}" }
+            .map { "ExportDependenciesService: Version format not valid ${it.name}:${it.version}" }
         if (invalidComponents.isNotEmpty()) {
             val message = invalidComponents.joinToString("\n")
             logger.error(message)
@@ -49,7 +49,7 @@ class ExportDependenciesServiceImpl (
                     .map { subProject to it }
             }
         logger.info(
-            "DependenciesExportService: Using configurations {}",
+            "ExportDependenciesService: Using configurations {}",
             configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" }
         )
         return configurationsByProject.flatMap { (subProject, gradleConfig) ->
@@ -58,14 +58,12 @@ class ExportDependenciesServiceImpl (
     }
 
     private fun extractDependenciesFromConfiguration(project: Project, config: ExportDependenciesConfig, gradleConfig: Configuration): List<ModuleComponentIdentifier> {
-        requireNotNull(componentsRegistryClient) {
-            "ComponentsRegistryServiceClient must be provided when scan is enabled"
-        }
-        logger.info("DependenciesExportService: Extract dependencies for configuration '{}'", gradleConfig.name)
+        requireNotNull(componentsRegistryClient) { "ComponentsRegistryServiceClient must be provided when scan is enabled" }
+        logger.info("ExportDependenciesService: Extract dependencies for configuration '{}'", gradleConfig.name)
         gradleConfig.allDependencies.forEach {
             if (it.version == null) {
                 logger.warn(
-                    "DependenciesExportService: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
+                    "ExportDependenciesService: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
                     it.group, it.name
                 )
             }
@@ -78,7 +76,7 @@ class ExportDependenciesServiceImpl (
                 isTransitive = false
                 extendsFrom(gradleConfig)
                 logger.info(
-                    "DependenciesExportService: Created resolvable configuration '{}:{}' extending '{}'",
+                    "ExportDependenciesService: Created resolvable configuration '{}:{}' extending '{}'",
                     project.path, resolvableName, gradleConfig.name
                 )
             }
@@ -95,26 +93,24 @@ class ExportDependenciesServiceImpl (
 
     private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
         val passed = supportedGroupIds.any { prefix -> id.group.startsWith(prefix) }
-        logger.info("DependenciesExportService: SupportedGroupIds filter {} passed={}", id, passed)
+        logger.info("ExportDependenciesService: SupportedGroupIds filter {} passed={}", id, passed)
         return passed
     }
 
     private fun matchesProjects(id: ModuleComponentIdentifier, projects: Regex): Boolean {
         val passed = id.module.matches(projects)
-        logger.info("DependenciesExportService: Projects filter {} passed={}", id, passed)
+        logger.info("ExportDependenciesService: Projects filter {} passed={}", id, passed)
         return passed
     }
 
     private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<Component> {
-        requireNotNull(componentsRegistryClient) {
-            "ComponentsRegistryServiceClient must be provided when scan is enabled"
-        }
+        requireNotNull(componentsRegistryClient) { "ComponentsRegistryServiceClient must be provided when scan is enabled" }
         if (artifacts.isEmpty()) return emptyList()
         val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
         return response.artifactComponents.mapNotNull {
             val comp = it.component
             if (comp == null) {
-                logger.error("DependenciesExportService: Component not found by artifact {}", it.artifact)
+                logger.error("ExportDependenciesService: Component not found by artifact {}", it.artifact)
                 null
             } else {
                 Component(comp.id, comp.version)

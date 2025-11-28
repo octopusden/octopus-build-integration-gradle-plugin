@@ -123,7 +123,7 @@ Default value is "runtime.+".
 | `setOutputFile()`
 | Name of the TeamCity parameter to which the plugin will write the resulting dependency list.
 
-Default value is "export-dependencies-report.txt"
+Default value is "export-dependencies-report.json"
 | Yes
 
 `buildIntegration.dependencies.outputFile`
