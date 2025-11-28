@@ -6,7 +6,7 @@
 
 == Purpose of the Plugin
 
-`Octopus Build Integration Gradle Plugin` adds the ability to export the list of components your project depends on into a TeamCity build parameter named `DEPENDENCIES`.
+`Octopus Build Integration Gradle Plugin` adds the ability to export the list of components your project depends on into a TeamCity build parameter.
 
 The list is formed based on:
 
@@ -24,6 +24,16 @@ pluginManagement {
 }
 ----
 
+.settings.gradle
+[source,groovy]
+----
+pluginManagement {
+    plugins {
+        id 'org.octopusden.octopus-build-integration' version settings['octopus-build-integration.version']
+    }
+}
+----
+
 .build.gradle.kts
 [source,kotlin]
 ----
@@ -32,82 +42,126 @@ plugins {
 }
 ----
 
+
+.build.gradle
+[source,groovy]
+----
+plugins {
+    id 'org.octopusden.octopus-build-integration'
+}
+----
+
+[IMPORTANT]
+====
+It is important to use the plugin version parameter name **exactly as specified in the documentation**:
+`octopus-build-integration.version`
+
+This ensures that TeamCity automatically injects the latest version of the plugin for each build.
+====
+
 == Plugin Configuration
+=== DSL Reference
+[cols="3,6,3", options="header"]
+|===
+| DSL Element
+| Description
+| Override via `-P`
 
-The plugin is configured in the root `build.gradle.kts` via the `buildIntegration` extension:
+| `add(name = "", version = "")`
+| Explicitly adds a component to the exported dependencies list.
+| No
 
-.build.gradle.kts
+| `scan.setEnabled()`
+| Enables or disables Gradle dependency scanning
+
+Default value is false.
+| Yes
+
+`buildIntegration.dependencies.scan.enabled`
+
+| `scan.setComponentsRegistryUrl()`
+| URL of the Components Registry service.
+| Yes
+
+`buildIntegration.dependencies.scan.componentsRegistryUrl`
+
+| `scan.setProjects()`
+| Regular expression used to filter resolved artifacts by module name.
+
+Default value is ".+".
+| Yes
+
+`buildIntegration.dependencies.scan.projects`
+
+| `scan.setConfigurations()`
+| Regular expression used to select Gradle configurations from which dependencies are extracted.
+
+Default value is "runtime.+".
+| Yes
+
+`buildIntegration.dependencies.scan.configurations`
+
+| `setTeamCityParameter()`
+| Name of the TeamCity parameter to which the plugin will write the resulting dependency list.
+
+Default value is "DEPENDENCIES"
+| Yes
+
+`buildIntegration.dependencies.teamCityParameter`
+|===
+
+=== Configuring
+
+If you want to explicitly add a component, it can be done as follows:
+
+.build.gradle.kts | build.gradle
 [source,kotlin]
 ----
 buildIntegration {
-    exportDependencies {
-        // Add components explicitly
-        components {
-            include("a", "1.0.0")
-            include("b", "1.1.0")
+    dependencies {
+        add("component_a", "1.0.0")
+        add("component_b", "1.2.0")
+    }
+}
+----
+
+If you need to include Gradle dependencies, you can configure scanning as follows:
+
+.build.gradle.kts | build.gradle
+[source,kotlin]
+----
+buildIntegration {
+    dependencies {
+        scan {
+            // only project "service-a"
+            setProjects("service-a")
+
+            // service-a or service-b
+            setProjects("(service-a|service-b)")
+
+            // exclude legacy-* projects
+            setProjects("^(?!legacy-).+")
         }
+    }
+}
 
-        // Enable component detection based on Gradle dependencies
-        gradleDependencies {
-            // Include all modules within the 'org.example' group
-            includeModule(group = "org.example")
+----
 
-            // Include all modules named 'some-module' from any group
-            includeModule(module = "some-module")
+.build.gradle.kts | build.gradle
+[source,kotlin]
+----
+buildIntegration {
+    dependencies {
+        scan {
+            // include only runtimeClasspath and compileClasspath dependencies
+            setConfigurations("(runtimeClasspath|compileClasspath)")
 
-            // Include module with specific group and module name
-            includeModule(group = "org.example", module = "some-module")
-
-            // Exclude all modules from the 'org.example' group
-            excludeModule(group = "org.example")
-
-            // Exclude all modules named 'deprecated-lib'
-            excludeModule(module = "deprecated-lib")
-
-            // Exclude module with specific group and module name
-            excludeModule(group = "org.example", module = "deprecated-lib")
-
-            // Include all matching dependencies except those excluded above.
-            // Default value is false.
-            includeAllDependencies = true
+            // include only test dependencies
+            setConfigurations("test.+")
         }
     }
 }
 ----
 
-.gradle.properties
-[source,kotlin,subs="attributes+"]
-----
-octopus-build-integration.version={version-label}
-----
-
-=== Additional Configuration
-
-The `exportDependenciesToTeamcity` task filters dependencies based on Gradle configuration names.
-
-By default it uses:
-
-* `includedConfigurations = ["runtimeElements", "runtimeClasspath"]`
-* `excludedConfigurations = []`
-
-This means that from all Gradle projects in the build, only dependencies from: `runtimeElements`, and `runtimeClasspath`.
-Are considered, except those explicitly excluded via `excludedConfigurations`.
-
-You can override these settings at the task level:
-
-.build.gradle.kts
-[source,kotlin]
-----
-// Use only 'runtimeClasspath'
-tasks.withType<ExportDependenciesToTeamcity>().configureEach {
-    includedConfigurations.set(listOf("runtimeClasspath"))
-}
-----
-
-[source,kotlin]
-----
-// Exclude 'runtimeElements' so only 'runtimeClasspath' is used
-tasks.withType<ExportDependenciesToTeamcity>().configureEach {
-    excludedConfigurations.set(listOf("runtimeElements"))
-}
-----
+'''
+The latest version of the plugin is  {version-label}

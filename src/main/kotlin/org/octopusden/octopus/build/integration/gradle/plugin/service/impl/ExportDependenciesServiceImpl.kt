@@ -5,47 +5,34 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ComponentSelector
+import org.octopusden.octopus.build.integration.gradle.plugin.model.Component
 import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.model.GradleDependenciesSelector
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ModuleSelector
 import org.octopusden.octopus.build.integration.gradle.plugin.service.ExportDependenciesService
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.core.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
 
 class ExportDependenciesServiceImpl (
-    private val componentsRegistryClient: ComponentsRegistryServiceClient
+    private val componentsRegistryClient: ComponentsRegistryServiceClient?
 ) : ExportDependenciesService {
 
-    override fun getDependencies(
-        project: Project,
-        config: ExportDependenciesConfig,
-        includedConfigurations: List<String>,
-        excludedConfigurations: List<String>,
-        includeAllDependencies: Boolean
-    ): List<String> {
+    override fun getDependencies(project: Project, config: ExportDependenciesConfig): List<String> {
         validateManualComponents(config.components)
-        val manualComponents = config.components.map { "${it.id}:${it.version}" }
-        val gradleComponents = if (config.gradleDependenciesEnabled || includeAllDependencies) {
-            val gradleArtifacts = collectArtifactDependenciesFromGradle(
-                project = project,
-                config = config,
-                includedConfigurations = includedConfigurations,
-                excludedConfigurations = excludedConfigurations,
-                includeAllDependencies = includeAllDependencies
-            )
-            mapArtifactsToComponents(gradleArtifacts)
+        val manualComponents = config.components.map { "${it.name}:${it.version}" }
+        val gradleComponents = if (config.scan.enabled) {
+            val artifacts = getDependenciesFromGradle(project, config)
+                .map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
+            mapArtifactsToComponents(artifacts)
         } else {
             emptyList()
         }
         return (manualComponents + gradleComponents).distinct().sorted()
     }
 
-    private fun validateManualComponents(components: List<ComponentSelector>) {
+    private fun validateManualComponents(components: List<Component>) {
         val invalidComponents = components
-            .filter { it.version == null || !it.version.matches(versionRegex) }
-            .map { "DependenciesExportService: Version format not valid ${it.id}:${it.version}" }
+            .filter { !it.version.matches(versionRegex) }
+            .map { "DependenciesExportService: Version format not valid ${it.name}:${it.version}" }
         if (invalidComponents.isNotEmpty()) {
             val message = invalidComponents.joinToString("\n")
             logger.error(message)
@@ -53,63 +40,42 @@ class ExportDependenciesServiceImpl (
         }
     }
 
-    private fun collectArtifactDependenciesFromGradle(
-        project: Project,
-        config: ExportDependenciesConfig,
-        includedConfigurations: List<String>,
-        excludedConfigurations: List<String>,
-        includeAllDependencies: Boolean
-    ): Set<ArtifactDependency> {
-        val gradleDependenciesSelector = config.gradleDependencies
+    private fun getDependenciesFromGradle(project: Project, config: ExportDependenciesConfig): Set<ModuleComponentIdentifier> {
         val configurationsByProject: List<Pair<Project, Configuration>> =
             project.rootProject.allprojects.flatMap { subProject ->
                 subProject.configurations
-                    .filter { config ->
-                        !excludedConfigurations.contains(config.name) &&
-                                (includedConfigurations.isEmpty() || includedConfigurations.contains(config.name))
-                    }
-                    .map { cfg -> subProject to cfg }
+                    .filter { it.name.matches(config.scan.configurations) }
+                    .map { subProject to it }
             }
         logger.info(
-            "DependenciesExportService: Using configurations {} (excluded={})",
-            configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" },
-            excludedConfigurations
+            "DependenciesExportService: Using configurations {}",
+            configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" }
         )
-        val moduleIds = configurationsByProject.flatMap { (subProject, config) ->
-            extractDependenciesFromConfiguration(
-                project = subProject,
-                configuration = config,
-                gradleDependenciesSelector = gradleDependenciesSelector,
-                includeAllDependencies = includeAllDependencies
-            )
-        }
-        return moduleIds.map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
+        return configurationsByProject.flatMap { (subProject, gradleConfig) ->
+            extractDependenciesFromConfiguration(subProject, config, gradleConfig)
+        }.toSet()
     }
 
-    private fun extractDependenciesFromConfiguration(
-        project: Project,
-        configuration: Configuration,
-        gradleDependenciesSelector: GradleDependenciesSelector,
-        includeAllDependencies: Boolean
-    ): List<ModuleComponentIdentifier> {
-        logger.info("DependenciesExportService: Extract dependencies for configuration '{}'", configuration.name)
-        configuration.allDependencies.forEach { it ->
+    private fun extractDependenciesFromConfiguration(project: Project, config: ExportDependenciesConfig, gradleConfig: Configuration): List<ModuleComponentIdentifier> {
+        logger.info("DependenciesExportService: Extract dependencies for configuration '{}'", gradleConfig.name)
+        gradleConfig.allDependencies.forEach {
             if (it.version == null) {
-                logger.warn("DependenciesExportService: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
+                logger.warn(
+                    "DependenciesExportService: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
                     it.group, it.name
                 )
             }
         }
-        val resolvableName = "${configuration.name}Resolvable"
+        val resolvableName = "${gradleConfig.name}Resolvable"
         val resolvableConfig = project.configurations.findByName(resolvableName)
             ?: project.configurations.create(resolvableName).apply {
                 isCanBeResolved = true
                 isCanBeConsumed = false
                 isTransitive = false
-                extendsFrom(configuration)
+                extendsFrom(gradleConfig)
                 logger.info(
                     "DependenciesExportService: Created resolvable configuration '{}:{}' extending '{}'",
-                    project.path, resolvableName, configuration.name
+                    project.path, resolvableName, gradleConfig.name
                 )
             }
         val allResolvedIds = resolvableConfig.incoming.resolutionResult.allDependencies.mapNotNull {
@@ -117,11 +83,10 @@ class ExportDependenciesServiceImpl (
                 it.selected.id as ModuleComponentIdentifier
             } else null
         }
-        val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
+        val supportedGroupIds = componentsRegistryClient!!.getSupportedGroupIds()
         return allResolvedIds
             .filter { matchesSupportedGroup(it, supportedGroupIds) }
-            .filter { matchesExcludeFilter(it, gradleDependenciesSelector) }
-            .filter { matchesIncludeFilter(it, gradleDependenciesSelector, includeAllDependencies) }
+            .filter { matchesProjects(it, config.scan.projects) }
     }
 
     private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
@@ -130,35 +95,15 @@ class ExportDependenciesServiceImpl (
         return passed
     }
 
-    private fun matchesExcludeFilter(id: ModuleComponentIdentifier, selector: GradleDependenciesSelector): Boolean {
-        val passed = selector.excludeModules.none { moduleMatchesSelector(id, it) }
-        logger.info("DependenciesExportService: Exclude filter {} passed={}", id, passed)
+    private fun matchesProjects(id: ModuleComponentIdentifier, projects: Regex): Boolean {
+        val passed = id.module.matches(projects)
+        logger.info("DependenciesExportService: Projects filter {} passed={}", id, passed)
         return passed
-    }
-
-    private fun matchesIncludeFilter(
-        id: ModuleComponentIdentifier,
-        selector: GradleDependenciesSelector,
-        includeAllDependencies: Boolean
-    ): Boolean {
-        if (includeAllDependencies) {
-            logger.info("DependenciesExportService: Include filter {} passed={} (includeAllDependencies=true)", id, true)
-            return true
-        }
-        val passed = selector.includeModules.any { moduleMatchesSelector(id, it) }
-        logger.info("DependenciesExportService: Include filter {} passed={}", id, passed)
-        return passed
-    }
-
-    private fun moduleMatchesSelector(id: ModuleComponentIdentifier, selector: ModuleSelector): Boolean {
-        val groupMatches = selector.group?.let { it == id.group } ?: true
-        val nameMatches = selector.name?.let { it == id.module } ?: true
-        return groupMatches && nameMatches
     }
 
     private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<String> {
         if (artifacts.isEmpty()) return emptyList()
-        val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
+        val response = componentsRegistryClient!!.findArtifactComponentsByArtifacts(artifacts)
         return response.artifactComponents.mapNotNull { artifactComponent ->
             val comp = artifactComponent.component
             if (comp == null) {

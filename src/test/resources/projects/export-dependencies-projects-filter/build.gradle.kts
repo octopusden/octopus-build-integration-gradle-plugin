@@ -4,13 +4,11 @@ plugins {
 }
 
 buildIntegration {
-    exportDependencies {
-        components {
-            include("a", "1.0.0")
-            include("b", "1.1.0")
-        }
-        gradleDependencies {
-            includeAllDependencies = true
+    dependencies {
+        add("a", "1.0.0")
+        add("b", "1.1.0")
+        scan {
+            setProjects("(components-registry-.+|versions.+)")
         }
     }
 }
@@ -18,4 +16,5 @@ buildIntegration {
 dependencies {
     implementation("org.octopusden.octopus.infrastructure:components-registry-service-client:2.0.62")
     implementation("org.octopusden.octopus-cloud-commons:octopus-security-common:2.0.15")
+    implementation("org.octopusden.octopus.releng:versions-api:2.0.10")
 }

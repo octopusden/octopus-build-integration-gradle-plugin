@@ -4,10 +4,10 @@ import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDepend
 
 open class BuildIntegrationExtension {
 
-    val exportDependenciesBuilder = ExportDependenciesBuilder()
+    val dependenciesExtension = DependenciesExtension()
 
-    fun exportDependencies(block: ExportDependenciesBuilder.() -> Unit) = exportDependenciesBuilder.block()
+    fun dependencies(block: DependenciesExtension.() -> Unit) = dependenciesExtension.block()
 
-    fun buildConfig(): ExportDependenciesConfig = exportDependenciesBuilder.build()
+    fun buildConfig(): ExportDependenciesConfig = dependenciesExtension.build()
 
 }

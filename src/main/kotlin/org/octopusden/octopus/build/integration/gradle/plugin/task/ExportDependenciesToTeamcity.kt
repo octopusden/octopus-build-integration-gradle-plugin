@@ -2,11 +2,10 @@ package org.octopusden.octopus.build.integration.gradle.plugin.task
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
-import org.gradle.api.provider.ListProperty
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.BuildIntegrationExtension
+import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
+import org.octopusden.octopus.build.integration.gradle.plugin.model.ScanConfig
 import org.octopusden.octopus.build.integration.gradle.plugin.service.ExportDependenciesService
 import org.octopusden.octopus.build.integration.gradle.plugin.service.impl.ExportDependenciesServiceImpl
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
@@ -15,61 +14,56 @@ import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsR
 
 abstract class ExportDependenciesToTeamcity : DefaultTask() {
 
-    @get:Input
-    @get:Optional
-    abstract val excludedConfigurations: ListProperty<String>
+    private val scanEnabled = project.findProperty(SCAN_ENABLED_PROPERTY)?.toString()?.toBoolean()
 
-    @get:Input
-    @get:Optional
-    abstract val includedConfigurations: ListProperty<String>
+    private val componentsRegistryUrl = project.findProperty(COMPONENT_REGISTRY_URL_PROPERTY)?.toString()
 
-    private val componentsRegistryUrl = project.findProperty(COMPONENT_REGISTRY_SERVICE_URL_PROPERTY)?.toString()
-        ?: throw GradleException("$COMPONENT_REGISTRY_SERVICE_URL_PROPERTY must not be empty")
+    private val projects = project.findProperty(PROJECTS_PROPERTY)?.toString()?.toRegex()
 
-    private val includeAllDependencies = project.findProperty(INCLUDE_ALL_DEPENDENCIES_PROPERTY)?.toString()?.toBoolean()
+    private val configurations = project.findProperty(CONFIGURATIONS_PROPERTY)?.toString()?.toRegex()
 
-    init {
-        excludedConfigurations.convention(emptyList())
-        includedConfigurations.convention(listOf("runtimeElements", "runtimeClasspath"))
-    }
+    private val teamCityParameter = project.findProperty(TEAMCITY_PARAMETER_PROPERTY)?.toString()
 
     @TaskAction
     fun exportDependencies() {
         val extension = project.extensions.findByType(BuildIntegrationExtension::class.java)
             ?: throw GradleException("BuildIntegrationExtension is not registered!")
-        val exportConfig = extension.buildConfig()
-        val finalIncludeAllDependencies = includeAllDependencies ?: exportConfig.gradleDependencies.includeAllDependencies
-        logger.info(
-            "ExportDependenciesToTeamcity started. excludedConfigurations={}, includedConfigurations={}, includeAllDependencies={}, componentsRegistryUrl={}",
-            excludedConfigurations.get(),
-            includedConfigurations.get(),
-            finalIncludeAllDependencies,
-            componentsRegistryUrl
-        )
-        val componentsRegistryClient = createComponentsRegistryClient()
+        val config = buildExportDependenciesConfig(extension.buildConfig())
+        logger.info("ExportDependenciesToTeamcity started. config={}", config)
+        val componentsRegistryClient = if (config.scan.enabled) {
+            if (config.scan.componentsRegistryUrl.isBlank()) {
+                throw GradleException("buildIntegration.dependencies.scan.enabled=true, but componentsRegistryUrl is null or empty")
+            }
+            val client = createComponentsRegistryClient(config.scan.componentsRegistryUrl)
+            logger.info("ExportDependenciesToTeamcity: supported group ids: {}", client.getSupportedGroupIds())
+            client
+        } else {
+            logger.info("ExportDependenciesToTeamcity: scan disabled, components registry client will not be created")
+            null
+        }
         val exportService: ExportDependenciesService = ExportDependenciesServiceImpl(componentsRegistryClient)
-        val dependencies = exportService.getDependencies(
-            project = project,
-            config = exportConfig,
-            includedConfigurations = includedConfigurations.get(),
-            excludedConfigurations = excludedConfigurations.get(),
-            includeAllDependencies = finalIncludeAllDependencies
-        )
+        val dependencies = exportService.getDependencies(project, config)
         if (dependencies.isEmpty()) {
-            logger.info("ExportDependenciesToTeamcity: no dependencies to export, DEPENDENCIES parameter will not be set")
+            logger.info("ExportDependenciesToTeamcity: no dependencies to export, ${config.teamCityParameter} parameter will not be set")
             return
         }
         val value = dependencies.joinToString(",")
         logger.info("ExportDependenciesToTeamcity: resulting dependencies: {}", value)
-        val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
-        val configs = includedConfigurations.get().filterNot { excludedConfigurations.get().contains(it) }
-        logger.info(
-            "ExportDependenciesToTeamcity: only {}.* dependencies from {} will be registered by release management",
-            supportedGroupIds,
-            configs
-        )
         val escaped = escapeTeamCityValue(value)
-        println("##teamcity[setParameter name='DEPENDENCIES' value='$escaped']")
+        println("##teamcity[setParameter name='${config.teamCityParameter}' value='$escaped']")
+    }
+
+    private fun buildExportDependenciesConfig(config: ExportDependenciesConfig): ExportDependenciesConfig {
+        return ExportDependenciesConfig(
+            components = config.components,
+            scan = ScanConfig(
+                enabled = scanEnabled ?: config.scan.enabled,
+                componentsRegistryUrl = componentsRegistryUrl ?: config.scan.componentsRegistryUrl,
+                projects = projects ?: config.scan.projects,
+                configurations = configurations ?: config.scan.configurations
+            ),
+            teamCityParameter = teamCityParameter ?: config.teamCityParameter
+        )
     }
 
     private fun escapeTeamCityValue(value: String): String =
@@ -80,7 +74,7 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
             .replace("\n", "|n")
             .replace("\r", "|r")
 
-    private fun createComponentsRegistryClient(): ComponentsRegistryServiceClient =
+    private fun createComponentsRegistryClient(componentsRegistryUrl: String): ComponentsRegistryServiceClient =
         ClassicComponentsRegistryServiceClient(
             object : ClassicComponentsRegistryServiceClientUrlProvider {
                 override fun getApiUrl(): String = componentsRegistryUrl
@@ -88,7 +82,10 @@ abstract class ExportDependenciesToTeamcity : DefaultTask() {
         )
 
     companion object {
-        const val COMPONENT_REGISTRY_SERVICE_URL_PROPERTY = "components-registry-service.url"
-        private const val INCLUDE_ALL_DEPENDENCIES_PROPERTY = "include-all-dependencies"
+        const val SCAN_ENABLED_PROPERTY = "buildIntegration.dependencies.scan.enabled"
+        const val COMPONENT_REGISTRY_URL_PROPERTY = "buildIntegration.dependencies.scan.componentsRegistryUrl"
+        const val PROJECTS_PROPERTY = "buildIntegration.dependencies.scan.projects"
+        const val CONFIGURATIONS_PROPERTY = "buildIntegration.dependencies.scan.configurations"
+        const val TEAMCITY_PARAMETER_PROPERTY = "buildIntegration.dependencies.teamCityParameter"
     }
 }

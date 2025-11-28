@@ -6,19 +6,19 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.octopusden.octopus.build.integration.gradle.plugin.runner.gradleProcessInstance
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesToTeamcity.Companion.COMPONENT_REGISTRY_SERVICE_URL_PROPERTY
+import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesToTeamcity.Companion.COMPONENT_REGISTRY_URL_PROPERTY
 import java.util.stream.Stream
 
 class ExportDependenciesToTeamcityTest {
 
     @ParameterizedTest
     @MethodSource("gradleJavaParameters")
-    fun testExportComponents(gradleVersion: String, javaHome: String) {
+    fun testOnlyExplicitComponents(gradleVersion: String, javaHome: String) {
         val (instance, _) = gradleProcessInstance {
-            projectPath = "projects/export-dependencies-components"
+            projectPath = "projects/export-dependencies-only-explicit-components"
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
-            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_SERVICE_URL_PROPERTY=http://$componentsRegistryHost")
+            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost")
             additionalEnvVariables = mapOf(
                 "JAVA_HOME" to javaHome
             )
@@ -30,53 +30,36 @@ class ExportDependenciesToTeamcityTest {
 
     @ParameterizedTest
     @MethodSource("gradleJavaParameters")
-    fun testIncludeAllDependencies(gradleVersion: String, javaHome: String) {
+    fun testProjectsFilter(gradleVersion: String, javaHome: String) {
         val (instance, _) = gradleProcessInstance {
-            projectPath = "projects/export-dependencies-include-all"
+            projectPath = "projects/export-dependencies-projects-filter"
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
-            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_SERVICE_URL_PROPERTY=http://$componentsRegistryHost")
+            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost")
             additionalEnvVariables = mapOf(
                 "JAVA_HOME" to javaHome
             )
         }
         assertEquals(0, instance.exitCode)
         val out = instance.stdOut.joinToString("\n")
-        assertTrue(out.contains("##teamcity[setParameter name='DEPENDENCIES' value='a:1.0.0,b:1.1.0,components-registry-service-client:2.0.62,octopus-security-common:2.0.15']"))
+        assertTrue(out.contains("##teamcity[setParameter name='DEPENDENCIES' value='a:1.0.0,b:1.1.0,components-registry-service-client:2.0.62,versions-api:2.0.10']"))
     }
 
     @ParameterizedTest
     @MethodSource("gradleJavaParameters")
-    fun testExcludeFilter(gradleVersion: String, javaHome: String) {
+    fun testScanDefaultValues(gradleVersion: String, javaHome: String) {
         val (instance, _) = gradleProcessInstance {
-            projectPath = "projects/export-dependencies-exclude-filter"
+            projectPath = "projects/export-dependencies-scan-default-values"
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
-            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_SERVICE_URL_PROPERTY=http://$componentsRegistryHost")
+            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost")
             additionalEnvVariables = mapOf(
                 "JAVA_HOME" to javaHome
             )
         }
         assertEquals(0, instance.exitCode)
         val out = instance.stdOut.joinToString("\n")
-        assertTrue(out.contains("##teamcity[setParameter name='DEPENDENCIES' value='a:1.0.0,b:1.1.0']"))
-    }
-
-    @ParameterizedTest
-    @MethodSource("gradleJavaParameters")
-    fun testSingleInclude(gradleVersion: String, javaHome: String) {
-        val (instance, _) = gradleProcessInstance {
-            projectPath = "projects/export-dependencies-single-include"
-            gradleWrapperPath = "wrappers/gradle-$gradleVersion"
-            tasks = EXPORT_DEPENDENCIES_COMMAND
-            additionalArguments = arrayOf("-P$COMPONENT_REGISTRY_SERVICE_URL_PROPERTY=http://$componentsRegistryHost")
-            additionalEnvVariables = mapOf(
-                "JAVA_HOME" to javaHome
-            )
-        }
-        assertEquals(0, instance.exitCode)
-        val out = instance.stdOut.joinToString("\n")
-        assertTrue(out.contains("##teamcity[setParameter name='DEPENDENCIES' value='a:1.0.0,b:1.1.0,octopus-security-common:2.0.15']"))
+        assertTrue(out.contains("##teamcity[setParameter name='DEPENDENCIES' value='a:1.0.0,b:1.1.0,components-registry-service-client:2.0.62,octopus-security-common:2.0.15,versions-api:2.0.10']"))
     }
 
     companion object {

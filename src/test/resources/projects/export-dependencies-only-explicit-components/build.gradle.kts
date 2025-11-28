@@ -4,14 +4,9 @@ plugins {
 }
 
 buildIntegration {
-    exportDependencies {
-        components {
-            include("a", "1.0.0")
-            include("b", "1.1.0")
-        }
-        gradleDependencies {
-            includeModule("org.octopusden.octopus-cloud-commons", "octopus-security-common")
-        }
+    dependencies {
+        add("a", "1.0.0")
+        add("b", "1.1.0")
     }
 }
 
