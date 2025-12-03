@@ -1,19 +1,19 @@
 package org.octopusden.octopus.build.integration.gradle.plugin.extension
 
-class ScanExtension {
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.Property
+import javax.inject.Inject
 
-    private var enabled: Boolean? = null
-    private var componentsRegistryUrl: String? = null
-    private var projects: String? = null
-    private var configurations: String? = null
+abstract class ScanExtension @Inject constructor(
+    objects: ObjectFactory
+) {
 
-    fun setEnabled(value: Boolean) { enabled = value }
-    fun setComponentsRegistryUrl(value: String) { componentsRegistryUrl = value }
-    fun setProjects(value: String) { projects = value }
-    fun setConfigurations(value: String) { configurations = value }
+    val enabled: Property<Boolean> = objects.property(Boolean::class.java)
 
-    fun isEnabled() = enabled
-    fun getComponentsRegistryUrl() = componentsRegistryUrl
-    fun getProjects() = projects
-    fun getConfigurations() = configurations
+    val componentsRegistryUrl: Property<String> = objects.property(String::class.java)
+
+    val projects: Property<String> = objects.property(String::class.java)
+
+    val configurations: Property<String> = objects.property(String::class.java)
+
 }

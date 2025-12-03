@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.BuildIntegrationExtension
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ScanConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.service.ExportDependenciesService
-import org.octopusden.octopus.build.integration.gradle.plugin.service.impl.ExportDependenciesServiceImpl
+import org.octopusden.octopus.build.integration.gradle.plugin.service.DependenciesExtractor
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
@@ -17,54 +19,54 @@ import java.util.regex.PatternSyntaxException
 
 abstract class ExportDependenciesTask : DefaultTask() {
 
-    private val scanEnabled = project.findProperty(SCAN_ENABLED_PROPERTY)?.toString()?.toBoolean()
+    @get:Input
+    abstract val scanEnabled: Property<Boolean>
 
-    private val componentsRegistryUrl = project.findProperty(COMPONENT_REGISTRY_URL_PROPERTY)?.toString()
+    @get:Input
+    abstract val componentsRegistryUrl: Property<String>
 
-    private val projects = regexProcessing(project.findProperty(PROJECTS_PROPERTY)?.toString())
+    @get:Input
+    abstract val projects: Property<String>
 
-    private val configurations = regexProcessing(project.findProperty(CONFIGURATIONS_PROPERTY)?.toString())
+    @get:Input
+    abstract val configurations: Property<String>
 
-    private val outputFile = project.findProperty(OUTPUT_FILE_PROPERTY)?.toString()
+    @get:OutputFile
+    abstract val outputFile: RegularFileProperty
+
+    @get:Input
+    abstract val manualComponents: SetProperty<Component>
 
     @TaskAction
     fun exportDependencies() {
-        val extension = project.extensions.findByType(BuildIntegrationExtension::class.java)
-            ?: throw GradleException("BuildIntegrationExtension is not registered!")
-        val config = buildExportDependenciesConfig(extension.buildConfig())
-        logger.info("ExportDependenciesTask started. config={}", config)
-        val componentsRegistryClient = if (config.scan.enabled) {
-            if (config.scan.componentsRegistryUrl.isBlank()) {
+        logger.info(
+            "ExportDependenciesTask started. scanEnabled={}, componentsRegistryUrl={}, projects={}, configurations={}, outputFile={}",
+            scanEnabled.get(), componentsRegistryUrl.get(), projects.get(), configurations.get(), outputFile.get()
+        )
+        val componentsRegistryClient = if (scanEnabled.get()) {
+            if (componentsRegistryUrl.get().isBlank()) {
                 throw GradleException("$SCAN_ENABLED_PROPERTY=true, but componentsRegistryUrl is null or empty")
             }
-            val client = createComponentsRegistryClient(config.scan.componentsRegistryUrl)
+            val client = createComponentsRegistryClient(componentsRegistryUrl.get())
             logger.info("ExportDependenciesTask: supported group ids: {}", client.getSupportedGroupIds())
             client
         } else {
             logger.info("ExportDependenciesTask: scan disabled, components registry client will not be created")
             null
         }
-        val exportService: ExportDependenciesService = ExportDependenciesServiceImpl(componentsRegistryClient)
-        val dependencies = exportService.getDependencies(project, config)
+        val exportService = DependenciesExtractor(componentsRegistryClient)
+        val dependencies = exportService.getDependencies(
+            project = project,
+            manualComponents = manualComponents.get(),
+            scanEnabled = scanEnabled.get(),
+            projects = regexProcessing(projects.get()),
+            configurations = regexProcessing(configurations.get())
+        )
         val jsonResult = ObjectMapper().apply { enable(SerializationFeature.INDENT_OUTPUT) }.writeValueAsString(dependencies)
         logger.info("ExportDependenciesTask: resulting dependencies: {}", dependencies)
-        val outputFile = project.layout.buildDirectory.file(config.outputFile).get().asFile
-        outputFile.parentFile.mkdirs()
-        outputFile.writeText(jsonResult)
-        logger.info("ExportDependenciesTask: exported dependencies written to: ${outputFile.absolutePath}")
-    }
-
-    private fun buildExportDependenciesConfig(config: ExportDependenciesConfig): ExportDependenciesConfig {
-        return ExportDependenciesConfig(
-            components = config.components,
-            scan = ScanConfig(
-                enabled = scanEnabled ?: config.scan.enabled,
-                componentsRegistryUrl = componentsRegistryUrl ?: config.scan.componentsRegistryUrl,
-                projects = projects ?: config.scan.projects,
-                configurations = configurations ?: config.scan.configurations
-            ),
-            outputFile = outputFile ?: config.outputFile
-        )
+        outputFile.get().asFile.parentFile.mkdirs()
+        outputFile.get().asFile.writeText(jsonResult)
+        logger.info("ExportDependenciesTask: exported dependencies written to: ${outputFile.get().asFile.absolutePath}")
     }
 
     private fun createComponentsRegistryClient(componentsRegistryUrl: String): ComponentsRegistryServiceClient =
@@ -74,20 +76,19 @@ abstract class ExportDependenciesTask : DefaultTask() {
             }
         )
 
+    private fun regexProcessing(pattern: String): Regex {
+        return try {
+            pattern.toRegex()
+        } catch (e: PatternSyntaxException) {
+            throw GradleException("Invalid regex pattern: $pattern", e)
+        }
+    }
+
     companion object {
         const val SCAN_ENABLED_PROPERTY = "buildIntegration.dependencies.scan.enabled"
         const val COMPONENT_REGISTRY_URL_PROPERTY = "buildIntegration.dependencies.scan.componentsRegistryUrl"
         const val PROJECTS_PROPERTY = "buildIntegration.dependencies.scan.projects"
         const val CONFIGURATIONS_PROPERTY = "buildIntegration.dependencies.scan.configurations"
         const val OUTPUT_FILE_PROPERTY = "buildIntegration.dependencies.outputFile"
-
-        fun regexProcessing(pattern: String?): Regex? {
-            if (pattern == null) return null
-            return try {
-                pattern.toRegex()
-            } catch (e: PatternSyntaxException) {
-                throw GradleException("Invalid regex pattern: $pattern", e)
-            }
-        }
     }
 }

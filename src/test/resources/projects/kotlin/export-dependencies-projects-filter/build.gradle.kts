@@ -1,3 +1,5 @@
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
+
 plugins {
     kotlin("jvm") version "1.9.25"
     id("org.octopusden.octopus-build-integration")
@@ -5,10 +7,11 @@ plugins {
 
 buildIntegration {
     dependencies {
-        add("component_a", "1.0.0")
-        add("component_b", "1.1.0")
+        components.add(Component("component_a", "1.0.0"))
+        components.add(Component("component_b", "1.1.0"))
+
         scan {
-            setProjects("(components-registry-.+|versions.+)")
+            projects.set("(components-registry-.+|versions.+)")
         }
     }
 }

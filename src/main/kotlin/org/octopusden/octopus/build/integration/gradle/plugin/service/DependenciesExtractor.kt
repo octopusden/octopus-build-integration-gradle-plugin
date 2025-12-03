@@ -1,31 +1,36 @@
-package org.octopusden.octopus.build.integration.gradle.plugin.service.impl
+package org.octopusden.octopus.build.integration.gradle.plugin.service
 
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
-import org.octopusden.octopus.build.integration.gradle.plugin.model.Component
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.service.ExportDependenciesService
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.core.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
 
-class ExportDependenciesServiceImpl (
+class DependenciesExtractor(
     private val componentsRegistryClient: ComponentsRegistryServiceClient?
-) : ExportDependenciesService {
+) {
 
-    override fun getDependencies(project: Project, config: ExportDependenciesConfig): List<Component> {
-        validateManualComponents(config.components)
-        val gradleComponents = if (config.scan.enabled) {
-            val artifacts = getDependenciesFromGradle(project, config)
-                .map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
+    fun getDependencies(
+        project: Project,
+        manualComponents: Set<Component>,
+        scanEnabled: Boolean,
+        projects: Regex,
+        configurations: Regex
+    ): List<Component> {
+        validateManualComponents(manualComponents)
+        val gradleComponents = if (scanEnabled) {
+            val artifacts = getDependenciesFromGradle(project, projects, configurations)
+                .map { ArtifactDependency(it.group, it.module, it.version) }
+                .toSet()
             mapArtifactsToComponents(artifacts)
         } else {
             emptyList()
         }
-        return (config.components + gradleComponents)
+        return (manualComponents + gradleComponents)
             .distinct()
             .sortedWith(compareBy<Component> { it.name }.thenBy { it.version })
     }
@@ -33,7 +38,7 @@ class ExportDependenciesServiceImpl (
     private fun validateManualComponents(components: Set<Component>) {
         val invalidComponents = components
             .filter { !it.version.matches(versionRegex) }
-            .map { "ExportDependenciesService: Version format not valid ${it.name}:${it.version}" }
+            .map { "DependenciesExtractor: Version format not valid ${it.name}:${it.version}" }
         if (invalidComponents.isNotEmpty()) {
             val message = invalidComponents.joinToString("\n")
             logger.error(message)
@@ -41,29 +46,37 @@ class ExportDependenciesServiceImpl (
         }
     }
 
-    private fun getDependenciesFromGradle(project: Project, config: ExportDependenciesConfig): Set<ModuleComponentIdentifier> {
+    private fun getDependenciesFromGradle(
+        project: Project,
+        projects: Regex,
+        configurations: Regex
+    ): Set<ModuleComponentIdentifier> {
         val configurationsByProject: List<Pair<Project, Configuration>> =
             project.rootProject.allprojects.flatMap { subProject ->
                 subProject.configurations
-                    .filter { it.name.matches(config.scan.configurations) }
+                    .filter { it.name.matches(configurations) }
                     .map { subProject to it }
             }
         logger.info(
-            "ExportDependenciesService: Using configurations {}",
+            "DependenciesExtractor: Using configurations {}",
             configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" }
         )
         return configurationsByProject.flatMap { (subProject, gradleConfig) ->
-            extractDependenciesFromConfiguration(subProject, config, gradleConfig)
+            extractDependenciesFromConfiguration(subProject, projects, gradleConfig)
         }.toSet()
     }
 
-    private fun extractDependenciesFromConfiguration(project: Project, config: ExportDependenciesConfig, gradleConfig: Configuration): List<ModuleComponentIdentifier> {
+    private fun extractDependenciesFromConfiguration(
+        project: Project,
+        projects: Regex,
+        gradleConfig: Configuration
+    ): List<ModuleComponentIdentifier> {
         requireNotNull(componentsRegistryClient) { "ComponentsRegistryServiceClient must be provided when scan is enabled" }
-        logger.info("ExportDependenciesService: Extract dependencies for configuration '{}'", gradleConfig.name)
+        logger.info("DependenciesExtractor: Extract dependencies for configuration '{}'", gradleConfig.name)
         gradleConfig.allDependencies.forEach {
             if (it.version == null) {
                 logger.warn(
-                    "ExportDependenciesService: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
+                    "DependenciesExtractor: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
                     it.group, it.name
                 )
             }
@@ -76,7 +89,7 @@ class ExportDependenciesServiceImpl (
                 isTransitive = false
                 extendsFrom(gradleConfig)
                 logger.info(
-                    "ExportDependenciesService: Created resolvable configuration '{}:{}' extending '{}'",
+                    "DependenciesExtractor: Created resolvable configuration '{}:{}' extending '{}'",
                     project.path, resolvableName, gradleConfig.name
                 )
             }
@@ -88,18 +101,18 @@ class ExportDependenciesServiceImpl (
         val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
         return allResolvedIds
             .filter { matchesSupportedGroup(it, supportedGroupIds) }
-            .filter { matchesProjects(it, config.scan.projects) }
+            .filter { matchesProjects(it, projects) }
     }
 
     private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
         val passed = supportedGroupIds.any { prefix -> id.group.startsWith(prefix) }
-        logger.info("ExportDependenciesService: SupportedGroupIds filter {} passed={}", id, passed)
+        logger.info("DependenciesExtractor: SupportedGroupIds filter {} passed={}", id, passed)
         return passed
     }
 
     private fun matchesProjects(id: ModuleComponentIdentifier, projects: Regex): Boolean {
         val passed = id.module.matches(projects)
-        logger.info("ExportDependenciesService: Projects filter {} passed={}", id, passed)
+        logger.info("DependenciesExtractor: Projects filter {} passed={}", id, passed)
         return passed
     }
 
@@ -110,7 +123,7 @@ class ExportDependenciesServiceImpl (
         return response.artifactComponents.mapNotNull {
             val comp = it.component
             if (comp == null) {
-                logger.error("ExportDependenciesService: Component not found by artifact {}", it.artifact)
+                logger.error("DependenciesExtractor: Component not found by artifact {}", it.artifact)
                 null
             } else {
                 Component(comp.id, comp.version)
@@ -119,7 +132,7 @@ class ExportDependenciesServiceImpl (
     }
 
     companion object {
-        private val logger = LoggerFactory.getLogger(ExportDependenciesServiceImpl::class.java)
+        private val logger = LoggerFactory.getLogger(DependenciesExtractor::class.java)
         private val versionRegex = Regex("\\d+([._-]\\d+)*")
     }
 

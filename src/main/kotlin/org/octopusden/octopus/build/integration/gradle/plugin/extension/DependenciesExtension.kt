@@ -1,41 +1,42 @@
 package org.octopusden.octopus.build.integration.gradle.plugin.extension
 
-import org.octopusden.octopus.build.integration.gradle.plugin.model.Component
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ScanConfig
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.regexProcessing
+import org.gradle.api.Action
+import org.gradle.api.file.ProjectLayout
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.SetProperty
+import java.io.Serializable
+import javax.inject.Inject
 
-class DependenciesExtension {
+abstract class DependenciesExtension @Inject constructor(
+    objects: ObjectFactory,
+    layout: ProjectLayout
+) {
 
-    private var outputFile: String? = null
+    val outputFile: RegularFileProperty = objects.fileProperty()
+        .convention(layout.buildDirectory.file(DEFAULT_OUTPUT_FILE))
 
-    private val components = mutableSetOf<Component>()
-    private val scanExtension = ScanExtension()
+    val components: SetProperty<Component> = objects.setProperty(Component::class.java)
 
-    fun add(name: String, version: String) {
-        components += Component(name, version)
+    val scan: ScanExtension = objects.newInstance(ScanExtension::class.java).apply {
+        enabled.convention(DEFAULT_ENABLED)
+        componentsRegistryUrl.convention("")
+        projects.convention(DEFAULT_PROJECTS)
+        configurations.convention(DEFAULT_CONFIGURATIONS)
     }
 
-    fun setOutputFile(value: String) {
-        outputFile = value
+    fun scan(action: Action<in ScanExtension>) {
+        action.execute(scan)
     }
 
     fun scan(block: ScanExtension.() -> Unit) {
-        scanExtension.setEnabled(true)
-        scanExtension.block()
+        scan(Action { it.block() })
     }
 
-    fun build(): ExportDependenciesConfig =
-        ExportDependenciesConfig(
-            components = components,
-            scan = ScanConfig(
-                enabled = scanExtension.isEnabled() ?: DEFAULT_ENABLED,
-                componentsRegistryUrl = scanExtension.getComponentsRegistryUrl() ?: "",
-                projects = regexProcessing(scanExtension.getProjects()) ?: DEFAULT_PROJECTS.toRegex(),
-                configurations = regexProcessing(scanExtension.getConfigurations()) ?: DEFAULT_CONFIGURATIONS.toRegex()
-            ),
-            outputFile = outputFile ?: DEFAULT_OUTPUT_FILE
-        )
+    data class Component (
+        val name: String,
+        val version: String
+    ) : Serializable
 
     companion object {
         const val DEFAULT_OUTPUT_FILE = "export-dependencies-report.json"

@@ -1,13 +1,21 @@
 package org.octopusden.octopus.build.integration.gradle.plugin.extension
 
-import org.octopusden.octopus.build.integration.gradle.plugin.model.ExportDependenciesConfig
+import org.gradle.api.Action
+import org.gradle.api.model.ObjectFactory
+import javax.inject.Inject
 
-open class BuildIntegrationExtension {
+abstract class BuildIntegrationExtension @Inject constructor(
+    objects: ObjectFactory
+) {
 
-    val dependenciesExtension = DependenciesExtension()
+    val dependenciesExtension: DependenciesExtension = objects.newInstance(DependenciesExtension::class.java)
 
-    fun dependencies(block: DependenciesExtension.() -> Unit) = dependenciesExtension.block()
+    fun dependencies(action: Action<in DependenciesExtension>) {
+        action.execute(dependenciesExtension)
+    }
 
-    fun buildConfig(): ExportDependenciesConfig = dependenciesExtension.build()
+    fun dependencies(block: DependenciesExtension.() -> Unit) {
+        dependencies(Action { it.block() })
+    }
 
 }

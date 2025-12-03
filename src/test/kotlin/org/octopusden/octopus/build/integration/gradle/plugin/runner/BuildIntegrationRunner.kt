@@ -15,23 +15,34 @@ open class TestGradleDSL {
     var additionalArguments: Array<String> = arrayOf()
     var additionalEnvVariables: Map<String, String> = mapOf()
     var tasks: Array<String> = arrayOf()
+    var reuseExistingDir: Boolean = false
 }
 
 fun gradleProcessInstance(init: TestGradleDSL.() -> Unit): Pair<ProcessInstance, Path> {
     val spec = TestGradleDSL().apply(init)
-    val projectPath = getResourcePath("/${spec.projectPath}", "Test project")
-    if (!Files.isDirectory(projectPath)) {
-        error("Project '${spec.projectPath}' not found at $projectPath")
+    val tmpDir: Path = if (spec.reuseExistingDir) {
+        val dir = Paths.get(spec.projectPath).toAbsolutePath()
+        println("Reusing existing test project dir: $dir")
+        if (!Files.isDirectory(dir)) {
+            error("Reused project directory '$dir' does not exist or is not a directory")
+        }
+        dir
+    } else {
+        val projectPath = getResourcePath("/${spec.projectPath}", "Test project")
+        if (!Files.isDirectory(projectPath)) {
+            error("Project '${spec.projectPath}' not found at $projectPath")
+        }
+        val wrapperPath = getResourcePath("/${spec.gradleWrapperPath}", "Gradle Wrapper")
+        if (!Files.isDirectory(wrapperPath)) {
+            error("Wrapper '${spec.gradleWrapperPath}' not found at $wrapperPath")
+        }
+        val testsTmpRoot = Paths.get("").toAbsolutePath().resolve("build/tmp/test")
+        val dir = Files.createTempDirectory(testsTmpRoot, "build-integration-test-").toAbsolutePath()
+        println("Using temp test project dir: $dir")
+        copy(projectPath, dir)
+        copy(wrapperPath, dir)
+        dir
     }
-    val wrapperPath = getResourcePath("/${spec.gradleWrapperPath}", "Gradle Wrapper")
-    if (!Files.isDirectory(wrapperPath)) {
-        error("Wrapper '${spec.gradleWrapperPath}' not found at $wrapperPath")
-    }
-    val testsTmpRoot = Paths.get("").toAbsolutePath().resolve("build/tmp/test")
-    val tmpDir = Files.createTempDirectory(testsTmpRoot, "build-integration-test-").toAbsolutePath()
-    println("Using temp test project dir: $tmpDir")
-    copy(projectPath, tmpDir)
-    copy(wrapperPath, tmpDir)
     val baseEnv = mapOf(
         "JAVA_HOME" to System.getProperty("java.home")
     )
@@ -48,7 +59,8 @@ fun gradleProcessInstance(init: TestGradleDSL.() -> Unit): Pair<ProcessInstance,
         .execute(
             *(listOf(
                 "-P$BUILD_INTEGRATION_VERSION_PROPERTY=${System.getProperty(BUILD_INTEGRATION_VERSION_PROPERTY)}"
-            ) + spec.tasks + spec.additionalArguments).toTypedArray())
+            ) + spec.tasks + spec.additionalArguments).toTypedArray()
+        )
         .toCompletableFuture()
         .join()
 
