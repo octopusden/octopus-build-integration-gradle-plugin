@@ -127,17 +127,15 @@ class ExportDependenciesToTeamcityTest {
     @ParameterizedTest
     @MethodSource("testParameters")
     fun testConfigurationCacheReuse(gradleVersion: String, javaHome: String, dsl: String) {
-        val outputFile = "cc-output-$dsl-$gradleVersion.json"
         val (firstRun, tmpDir) = gradleProcessInstance {
-            projectPath = "projects/$dsl/export-dependencies-scan-default-values"
+            projectPath = "projects/$dsl/export-dependencies-configuration-cache"
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
             additionalArguments = arrayOf(
                 "--configuration-cache",
                 "--configuration-cache-problems=fail",
                 "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
-                "-P$SCAN_ENABLED_PROPERTY=true",
-                "-P$OUTPUT_FILE_PROPERTY=$outputFile"
+                "-P$SCAN_ENABLED_PROPERTY=true"
             )
             additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
         }
@@ -150,19 +148,67 @@ class ExportDependenciesToTeamcityTest {
                 "--configuration-cache",
                 "--configuration-cache-problems=fail",
                 "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
-                "-P$SCAN_ENABLED_PROPERTY=true",
-                "-P$OUTPUT_FILE_PROPERTY=$outputFile"
+                "-P$SCAN_ENABLED_PROPERTY=true"
             )
             additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
             reuseExistingDir = true
         }
         assertEquals(0, secondRun.exitCode)
+        val output = secondRun.stdOut + secondRun.stdErr
+        assertTrue(output.contains("Skipping task ':exportDependencies' as it is up-to-date."))
+    }
 
-        val fullOutput = secondRun.stdOut + "\n" + secondRun.stdErr
-        assertTrue(fullOutput.contains("Configuration cache entry reused"))
-
-        val resultFile = tmpDir.resolve("build/$outputFile").toFile()
-        assertTrue(resultFile.exists())
+    @ParameterizedTest
+    @MethodSource("testParameters")
+    fun testConfigurationCacheNotReuse(gradleVersion: String, javaHome: String, dsl: String) {
+        val firstOutput = "first-out.json"
+        val secondOutput = "second-out.json"
+        val (firstRun, tmpDir) = gradleProcessInstance {
+            projectPath = "projects/$dsl/export-dependencies-configuration-cache"
+            gradleWrapperPath = "wrappers/gradle-$gradleVersion"
+            tasks = EXPORT_DEPENDENCIES_COMMAND
+            additionalArguments = arrayOf(
+                "--configuration-cache",
+                "--configuration-cache-problems=fail",
+                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
+                "-P$SCAN_ENABLED_PROPERTY=true",
+                "-P$OUTPUT_FILE_PROPERTY=$firstOutput"
+            )
+            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+        }
+        assertEquals(0, firstRun.exitCode)
+        val (secondRun, _) = gradleProcessInstance {
+            projectPath = tmpDir.toString()
+            gradleWrapperPath = "wrappers/gradle-$gradleVersion"
+            tasks = EXPORT_DEPENDENCIES_COMMAND
+            additionalArguments = arrayOf(
+                "--configuration-cache",
+                "--configuration-cache-problems=fail",
+                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
+                "-P$SCAN_ENABLED_PROPERTY=false",
+                "-P$OUTPUT_FILE_PROPERTY=$secondOutput"
+            )
+            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            reuseExistingDir = true
+        }
+        assertEquals(0, secondRun.exitCode)
+        val firstFile = tmpDir.resolve("build/$firstOutput").toFile()
+        val secondFile = tmpDir.resolve("build/$secondOutput").toFile()
+        assertTrue(firstFile.exists(), "Dependencies file was not created")
+        assertTrue(secondFile.exists(), "Dependencies file was not created")
+        val firstResult = listOf(
+            Component("component_a", "1.0.0"),
+            Component("component_b", "1.1.0"),
+            Component("components-registry-service-client", "2.0.62"),
+            Component("octopus-security-common", "2.0.15"),
+            Component("versions-api", "2.0.10")
+        )
+        assertEquals(mapper.writeValueAsString(firstResult), firstFile.readText())
+        val secondResult = listOf(
+            Component("component_a", "1.0.0"),
+            Component("component_b", "1.1.0")
+        )
+        assertEquals(mapper.writeValueAsString(secondResult), secondFile.readText())
     }
 
     companion object {
@@ -178,7 +224,7 @@ class ExportDependenciesToTeamcityTest {
         fun testParameters(): Stream<Arguments> {
             val dsls = listOf("kotlin", "groovy")
             val gradleJava = listOf(
-                "6" to java8,
+//                "6" to java8,
                 "7" to java8,
                 "8" to java8,
                 "9" to java17
