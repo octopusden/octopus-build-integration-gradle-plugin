@@ -224,7 +224,6 @@ class ExportDependenciesToTeamcityTest {
         fun testParameters(): Stream<Arguments> {
             val dsls = listOf("kotlin", "groovy")
             val gradleJava = listOf(
-//                "6" to java8,
                 "7" to java8,
                 "8" to java8,
                 "9" to java17

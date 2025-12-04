@@ -26,7 +26,7 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
     private fun registerExportDependenciesTask(project: Project, extension: BuildIntegrationExtension) {
         val dependenciesExtension = extension.dependenciesExtension
 
-        val scanEnabledProvider = project.providers.gradleProperty(SCAN_ENABLED_PROPERTY).forUseAtConfigurationTime()
+        val scanEnabledProvider = project.providers.gradleProperty(SCAN_ENABLED_PROPERTY)
             .map { it.toBoolean() }
             .orElse(dependenciesExtension.scan.enabled)
 
