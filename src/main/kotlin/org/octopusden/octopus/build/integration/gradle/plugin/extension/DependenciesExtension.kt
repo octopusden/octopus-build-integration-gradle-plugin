@@ -18,12 +18,7 @@ abstract class DependenciesExtension @Inject constructor(
 
     val components: SetProperty<Component> = objects.setProperty(Component::class.java)
 
-    val scan: ScanExtension = objects.newInstance(ScanExtension::class.java).apply {
-        enabled.convention(DEFAULT_ENABLED)
-        componentsRegistryUrl.convention("")
-        projects.convention(DEFAULT_PROJECTS)
-        configurations.convention(DEFAULT_CONFIGURATIONS)
-    }
+    val scan: ScanExtension = objects.newInstance(ScanExtension::class.java)
 
     fun scan(action: Action<in ScanExtension>) {
         action.execute(scan)

@@ -7,37 +7,41 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
+import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClient
+import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
 import org.octopusden.octopus.components.registry.core.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
+import java.util.regex.PatternSyntaxException
 
 class DependenciesExtractor(
-    private val componentsRegistryClient: ComponentsRegistryServiceClient?
+    private val project: Project,
+    private val manualComponents: Set<Component>,
+    private val scanEnabled: Boolean,
+    private val componentsRegistryUrl: String,
+    private val projects: String,
+    private val configurations: String
 ) {
 
-    fun getDependencies(
-        project: Project,
-        manualComponents: Set<Component>,
-        scanEnabled: Boolean,
-        projects: Regex,
-        configurations: Regex
-    ): List<Component> {
+    private val componentsRegistryClient: ComponentsRegistryServiceClient by lazy {
+        createComponentsRegistryClient(componentsRegistryUrl)
+    }
+
+    fun extract(): List<Component> {
         validateManualComponents(manualComponents)
         val gradleComponents = if (scanEnabled) {
-            val artifacts = getDependenciesFromGradle(project, projects, configurations)
+            val artifacts = getDependenciesFromGradle()
                 .map { ArtifactDependency(it.group, it.module, it.version) }
                 .toSet()
             mapArtifactsToComponents(artifacts)
         } else {
             emptyList()
         }
-        return (manualComponents + gradleComponents)
-            .distinct()
+        return (manualComponents + gradleComponents).distinct()
             .sortedWith(compareBy<Component> { it.name }.thenBy { it.version })
     }
 
     private fun validateManualComponents(components: Set<Component>) {
-        val invalidComponents = components
-            .filter { !it.version.matches(versionRegex) }
+        val invalidComponents = components.filter { !it.version.matches(versionRegex) }
             .map { "DependenciesExtractor: Version format not valid ${it.name}:${it.version}" }
         if (invalidComponents.isNotEmpty()) {
             val message = invalidComponents.joinToString("\n")
@@ -46,15 +50,12 @@ class DependenciesExtractor(
         }
     }
 
-    private fun getDependenciesFromGradle(
-        project: Project,
-        projects: Regex,
-        configurations: Regex
-    ): Set<ModuleComponentIdentifier> {
+    private fun getDependenciesFromGradle(): Set<ModuleComponentIdentifier> {
+        val configurationsRegex: Regex = regexProcessing(configurations)
         val configurationsByProject: List<Pair<Project, Configuration>> =
             project.rootProject.allprojects.flatMap { subProject ->
                 subProject.configurations
-                    .filter { it.name.matches(configurations) }
+                    .filter { it.name.matches(configurationsRegex) }
                     .map { subProject to it }
             }
         logger.info(
@@ -62,16 +63,14 @@ class DependenciesExtractor(
             configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" }
         )
         return configurationsByProject.flatMap { (subProject, gradleConfig) ->
-            extractDependenciesFromConfiguration(subProject, projects, gradleConfig)
+            extractDependenciesFromConfiguration(subProject, gradleConfig)
         }.toSet()
     }
 
     private fun extractDependenciesFromConfiguration(
         project: Project,
-        projects: Regex,
         gradleConfig: Configuration
     ): List<ModuleComponentIdentifier> {
-        requireNotNull(componentsRegistryClient) { "ComponentsRegistryServiceClient must be provided when scan is enabled" }
         logger.info("DependenciesExtractor: Extract dependencies for configuration '{}'", gradleConfig.name)
         gradleConfig.allDependencies.forEach {
             if (it.version == null) {
@@ -101,7 +100,7 @@ class DependenciesExtractor(
         val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
         return allResolvedIds
             .filter { matchesSupportedGroup(it, supportedGroupIds) }
-            .filter { matchesProjects(it, projects) }
+            .filter { matchesProjects(it) }
     }
 
     private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
@@ -110,14 +109,14 @@ class DependenciesExtractor(
         return passed
     }
 
-    private fun matchesProjects(id: ModuleComponentIdentifier, projects: Regex): Boolean {
-        val passed = id.module.matches(projects)
+    private fun matchesProjects(id: ModuleComponentIdentifier): Boolean {
+        val projectsRegex: Regex = regexProcessing(projects)
+        val passed = id.module.matches(projectsRegex)
         logger.info("DependenciesExtractor: Projects filter {} passed={}", id, passed)
         return passed
     }
 
     private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<Component> {
-        requireNotNull(componentsRegistryClient) { "ComponentsRegistryServiceClient must be provided when scan is enabled" }
         if (artifacts.isEmpty()) return emptyList()
         val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
         return response.artifactComponents.mapNotNull {
@@ -128,6 +127,21 @@ class DependenciesExtractor(
             } else {
                 Component(comp.id, comp.version)
             }
+        }
+    }
+
+    private fun createComponentsRegistryClient(componentsRegistryUrl: String): ComponentsRegistryServiceClient =
+        ClassicComponentsRegistryServiceClient(
+            object : ClassicComponentsRegistryServiceClientUrlProvider {
+                override fun getApiUrl(): String = componentsRegistryUrl
+            }
+        )
+
+    private fun regexProcessing(pattern: String): Regex {
+        return try {
+            pattern.toRegex()
+        } catch (e: PatternSyntaxException) {
+            throw GradleException("Invalid regex pattern: $pattern", e)
         }
     }
 
