@@ -5,3 +5,5 @@ pluginManagement {
 }
 
 rootProject.name = "test-project"
+include(":service-a")
+include(":service-b")

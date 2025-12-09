@@ -2,9 +2,6 @@ package org.octopusden.octopus.build.integration.gradle.plugin.extension
 
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Companion.DEFAULT_CONFIGURATIONS
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Companion.DEFAULT_ENABLED
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Companion.DEFAULT_PROJECTS
 import javax.inject.Inject
 
 abstract class ScanExtension @Inject constructor(
@@ -23,4 +20,9 @@ abstract class ScanExtension @Inject constructor(
     val configurations: Property<String> = objects.property(String::class.java)
         .convention(DEFAULT_CONFIGURATIONS)
 
+    companion object {
+        const val DEFAULT_ENABLED = false
+        const val DEFAULT_PROJECTS = ".+"
+        const val DEFAULT_CONFIGURATIONS = "runtime.+"
+    }
 }

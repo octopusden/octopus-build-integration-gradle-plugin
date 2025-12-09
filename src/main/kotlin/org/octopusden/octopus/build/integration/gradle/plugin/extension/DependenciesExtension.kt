@@ -35,8 +35,5 @@ abstract class DependenciesExtension @Inject constructor(
 
     companion object {
         const val DEFAULT_OUTPUT_FILE = "export-dependencies-report.json"
-        const val DEFAULT_ENABLED = false
-        const val DEFAULT_PROJECTS = ".+"
-        const val DEFAULT_CONFIGURATIONS = "runtime.+"
     }
 }

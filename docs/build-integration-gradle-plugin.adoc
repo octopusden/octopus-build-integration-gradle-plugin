@@ -104,7 +104,7 @@ tasks.named("assemble").configure {
 | `buildIntegration.dependencies.scan.componentsRegistryUrl`
 
 | `scan.projects`
-| Regular expression used to filter resolved artifacts by module name.
+| Regular expression used to filter projects by their path
 | .+
 | `buildIntegration.dependencies.scan.projects`
 
@@ -159,14 +159,17 @@ If you need to include Gradle dependencies, you can configure scanning as follow
 buildIntegration {
     dependencies {
         scan {
-            // only project "service-a"
-            projects.set("service-a")
+            // only root project ":"
+            projects.set("^:$")
 
-            // service-a and service-b
-            projects.set("(service-a|service-b)")
+            // only subproject ":service-a"
+            projects.set(".*:service-a")
 
-            // exclude legacy-* projects
-            projects.set("^(?!legacy-).+")
+            // subprojects ":service-a" and ":service-b"
+            projects.set(".*:(service-a|service-b)")
+
+            // exclude subprojects with names starting with "legacy-"
+            projects.set("^(?!.*:legacy-).+")
         }
     }
 }
@@ -178,14 +181,17 @@ buildIntegration {
 buildIntegration {
     dependencies {
         scan {
-            // only project "service-a"
-            projects.set('service-a')
+            // only root project ":"
+            projects.set('^:$')
 
-            // service-a and service-b
-            projects.set('(service-a|service-b)')
+            // only subproject ":service-a"
+            projects.set('.*:service-a')
 
-            // exclude legacy-* projects
-            projects.set('^(?!legacy-).+')
+            // subprojects ":service-a" and ":service-b"
+            projects.set('.*:(service-a|service-b)')
+
+             // exclude subprojects with names starting with "legacy-"
+            projects.set('^(?!.*:legacy-).+')
         }
     }
 }
@@ -203,7 +209,7 @@ buildIntegration {
             configurations.set("(runtimeClasspath|compileClasspath)")
 
             // exclude test dependencies
-            configurations.set("^(?!test-).*")
+            configurations.set("^(?!test).*")
         }
     }
 }
@@ -219,7 +225,7 @@ buildIntegration {
             configurations.set('(runtimeClasspath|compileClasspath)')
 
             // exclude test dependencies
-            configurations.set('^(?!test-).*')
+            configurations.set('^(?!test).*')
         }
     }
 }

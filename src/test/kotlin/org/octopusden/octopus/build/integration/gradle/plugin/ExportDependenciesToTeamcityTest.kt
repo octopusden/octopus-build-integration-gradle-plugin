@@ -38,7 +38,7 @@ class ExportDependenciesToTeamcityTest {
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
-        val result = listOf(
+        val result = setOf(
             Component("component_a", "1.0.0"),
             Component("component_b", "1.1.0"),
         )
@@ -61,7 +61,7 @@ class ExportDependenciesToTeamcityTest {
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
-        val result = listOf(
+        val result = setOf(
             Component("component_a", "1.0.0"),
             Component("component_b", "1.1.0"),
             Component("components-registry-service-client", "2.0.62"),
@@ -86,7 +86,7 @@ class ExportDependenciesToTeamcityTest {
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
-        val result = listOf(
+        val result = setOf(
             Component("component_a", "1.0.0"),
             Component("component_b", "1.1.0"),
             Component("components-registry-service-client", "2.0.62"),
@@ -107,7 +107,7 @@ class ExportDependenciesToTeamcityTest {
             additionalArguments = arrayOf(
                 "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true",
-                "-P$PROJECTS_PROPERTY=octopus.+",
+                "-P$PROJECTS_PROPERTY=^:$",
                 "-P$CONFIGURATIONS_PROPERTY=runtime.+|compile.+",
                 "-P$OUTPUT_FILE_PROPERTY=$outputFile"
             )
@@ -116,7 +116,7 @@ class ExportDependenciesToTeamcityTest {
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$outputFile").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
-        val result = listOf(
+        val result = setOf(
             Component("component_a", "1.0.0"),
             Component("component_b", "1.1.0"),
             Component("octopus-security-common", "2.0.15")
@@ -196,7 +196,7 @@ class ExportDependenciesToTeamcityTest {
         val secondFile = tmpDir.resolve("build/$secondOutput").toFile()
         assertTrue(firstFile.exists(), "Dependencies file was not created")
         assertTrue(secondFile.exists(), "Dependencies file was not created")
-        val firstResult = listOf(
+        val firstResult = setOf(
             Component("component_a", "1.0.0"),
             Component("component_b", "1.1.0"),
             Component("components-registry-service-client", "2.0.62"),
@@ -204,7 +204,7 @@ class ExportDependenciesToTeamcityTest {
             Component("versions-api", "2.0.10")
         )
         assertEquals(mapper.writeValueAsString(firstResult), firstFile.readText())
-        val secondResult = listOf(
+        val secondResult = setOf(
             Component("component_a", "1.0.0"),
             Component("component_b", "1.1.0")
         )

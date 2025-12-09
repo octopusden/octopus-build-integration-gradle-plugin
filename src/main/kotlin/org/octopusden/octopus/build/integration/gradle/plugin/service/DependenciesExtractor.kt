@@ -18,26 +18,33 @@ class DependenciesExtractor(
     private val manualComponents: Set<Component>,
     private val scanEnabled: Boolean,
     private val componentsRegistryUrl: String,
-    private val projects: String,
-    private val configurations: String
+    projects: String,
+    configurations: String
 ) {
 
     private val componentsRegistryClient: ComponentsRegistryServiceClient by lazy {
-        createComponentsRegistryClient(componentsRegistryUrl)
+        ClassicComponentsRegistryServiceClient(
+            object : ClassicComponentsRegistryServiceClientUrlProvider {
+                override fun getApiUrl(): String = componentsRegistryUrl
+            }
+        )
     }
 
-    fun extract(): List<Component> {
+    private val projectsRegex: Regex = regexProcessing(projects)
+
+    private val configurationsRegex = regexProcessing(configurations)
+
+    fun extract(): Set<Component> {
         validateManualComponents(manualComponents)
         val gradleComponents = if (scanEnabled) {
-            val artifacts = getDependenciesFromGradle()
-                .map { ArtifactDependency(it.group, it.module, it.version) }
-                .toSet()
+            val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
             mapArtifactsToComponents(artifacts)
         } else {
-            emptyList()
+            emptySet()
         }
-        return (manualComponents + gradleComponents).distinct()
-            .sortedWith(compareBy<Component> { it.name }.thenBy { it.version })
+        // Result may include components with the same name but different versions.
+        // Resolving such conflicts will be performed at later stages.
+        return manualComponents + gradleComponents
     }
 
     private fun validateManualComponents(components: Set<Component>) {
@@ -51,13 +58,12 @@ class DependenciesExtractor(
     }
 
     private fun getDependenciesFromGradle(): Set<ModuleComponentIdentifier> {
-        val configurationsRegex: Regex = regexProcessing(configurations)
         val configurationsByProject: List<Pair<Project, Configuration>> =
-            project.rootProject.allprojects.flatMap { subProject ->
-                subProject.configurations
-                    .filter { it.name.matches(configurationsRegex) }
-                    .map { subProject to it }
-            }
+            project.rootProject.allprojects
+                .filter { matchesProjects(it) }
+                .flatMap { subProject ->
+                    subProject.configurations.filter { matchesConfigurations(it) }.map { subProject to it }
+                }
         logger.info(
             "DependenciesExtractor: Using configurations {}",
             configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" }
@@ -67,10 +73,7 @@ class DependenciesExtractor(
         }.toSet()
     }
 
-    private fun extractDependenciesFromConfiguration(
-        project: Project,
-        gradleConfig: Configuration
-    ): List<ModuleComponentIdentifier> {
+    private fun extractDependenciesFromConfiguration(project: Project, gradleConfig: Configuration): Set<ModuleComponentIdentifier> {
         logger.info("DependenciesExtractor: Extract dependencies for configuration '{}'", gradleConfig.name)
         gradleConfig.allDependencies.forEach {
             if (it.version == null) {
@@ -98,26 +101,29 @@ class DependenciesExtractor(
             } else null
         }
         val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
-        return allResolvedIds
-            .filter { matchesSupportedGroup(it, supportedGroupIds) }
-            .filter { matchesProjects(it) }
+        return allResolvedIds.filter { matchesSupportedGroups(it, supportedGroupIds) }.toSet()
     }
 
-    private fun matchesSupportedGroup(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
-        val passed = supportedGroupIds.any { prefix -> id.group.startsWith(prefix) }
-        logger.info("DependenciesExtractor: SupportedGroupIds filter {} passed={}", id, passed)
+    private fun matchesProjects(subproject: Project): Boolean {
+        val passed = subproject.path.matches(projectsRegex)
+        logger.info("DependenciesExtractor: Projects filter {} passed={}", subproject.path, passed)
         return passed
     }
 
-    private fun matchesProjects(id: ModuleComponentIdentifier): Boolean {
-        val projectsRegex: Regex = regexProcessing(projects)
-        val passed = id.module.matches(projectsRegex)
-        logger.info("DependenciesExtractor: Projects filter {} passed={}", id, passed)
+    private fun matchesConfigurations(configuration: Configuration): Boolean {
+        val passed = configuration.name.matches(configurationsRegex)
+        logger.info("DependenciesExtractor: Configurations filter {} passed={}", configuration.name, passed)
         return passed
     }
 
-    private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): List<Component> {
-        if (artifacts.isEmpty()) return emptyList()
+    private fun matchesSupportedGroups(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
+        val passed = supportedGroupIds.any { id.group.startsWith(it) }
+        logger.info("DependenciesExtractor: SupportedGroups filter {} passed={}", id, passed)
+        return passed
+    }
+
+    private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): Set<Component> {
+        if (artifacts.isEmpty()) return emptySet()
         val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
         return response.artifactComponents.mapNotNull {
             val comp = it.component
@@ -127,15 +133,8 @@ class DependenciesExtractor(
             } else {
                 Component(comp.id, comp.version)
             }
-        }
+        }.toSet()
     }
-
-    private fun createComponentsRegistryClient(componentsRegistryUrl: String): ComponentsRegistryServiceClient =
-        ClassicComponentsRegistryServiceClient(
-            object : ClassicComponentsRegistryServiceClientUrlProvider {
-                override fun getApiUrl(): String = componentsRegistryUrl
-            }
-        )
 
     private fun regexProcessing(pattern: String): Regex {
         return try {
