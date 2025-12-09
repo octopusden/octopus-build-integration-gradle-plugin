@@ -7,18 +7,18 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.COMPONENT_REGISTRY_URL_PROPERTY
+import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.CONFIGURATIONS_PROPERTY
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.EXPORT_DEPENDENCIES_TASK_NAME
+import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.OUTPUT_FILE_PROPERTY
+import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.PROJECTS_PROPERTY
+import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.SCAN_ENABLED_PROPERTY
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Companion.DEFAULT_OUTPUT_FILE
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
 import org.octopusden.octopus.build.integration.gradle.plugin.runner.gradleProcessInstance
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.COMPONENT_REGISTRY_URL_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.CONFIGURATIONS_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.OUTPUT_FILE_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.PROJECTS_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.SCAN_ENABLED_PROPERTY
 import java.util.stream.Stream
 
-class ExportDependenciesToTeamcityTest {
+class ExportDependenciesTest {
 
     private val mapper = ObjectMapper().apply { enable(SerializationFeature.INDENT_OUTPUT) }
 
@@ -40,7 +40,7 @@ class ExportDependenciesToTeamcityTest {
         assertTrue(file.exists(), "Dependencies file was not created")
         val result = setOf(
             Component("component_a", "1.0.0"),
-            Component("component_b", "1.1.0"),
+            Component("component_b", "1.1.0")
         )
         assertEquals(mapper.writeValueAsString(result), file.readText())
     }
@@ -62,10 +62,10 @@ class ExportDependenciesToTeamcityTest {
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
         val result = setOf(
-            Component("component_a", "1.0.0"),
-            Component("component_b", "1.1.0"),
             Component("components-registry-service-client", "2.0.62"),
-            Component("versions-api", "2.0.10")
+            Component("versions-api", "2.0.10"),
+            Component("component_a", "1.0.0"),
+            Component("component_b", "1.1.0")
         )
         assertEquals(mapper.writeValueAsString(result), file.readText())
     }
@@ -87,11 +87,11 @@ class ExportDependenciesToTeamcityTest {
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
         val result = setOf(
-            Component("component_a", "1.0.0"),
-            Component("component_b", "1.1.0"),
             Component("components-registry-service-client", "2.0.62"),
             Component("octopus-security-common", "2.0.15"),
-            Component("versions-api", "2.0.10")
+            Component("versions-api", "2.0.10"),
+            Component("component_a", "1.0.0"),
+            Component("component_b", "1.1.0")
         )
         assertEquals(mapper.writeValueAsString(result), file.readText())
     }
@@ -117,9 +117,9 @@ class ExportDependenciesToTeamcityTest {
         val file = projectPath.resolve("build/$outputFile").toFile()
         assertTrue(file.exists(), "Dependencies file was not created")
         val result = setOf(
+            Component("octopus-security-common", "2.0.15"),
             Component("component_a", "1.0.0"),
-            Component("component_b", "1.1.0"),
-            Component("octopus-security-common", "2.0.15")
+            Component("component_b", "1.1.0")
         )
         assertEquals(mapper.writeValueAsString(result), file.readText())
     }
@@ -197,11 +197,11 @@ class ExportDependenciesToTeamcityTest {
         assertTrue(firstFile.exists(), "Dependencies file was not created")
         assertTrue(secondFile.exists(), "Dependencies file was not created")
         val firstResult = setOf(
-            Component("component_a", "1.0.0"),
-            Component("component_b", "1.1.0"),
             Component("components-registry-service-client", "2.0.62"),
             Component("octopus-security-common", "2.0.15"),
-            Component("versions-api", "2.0.10")
+            Component("versions-api", "2.0.10"),
+            Component("component_a", "1.0.0"),
+            Component("component_b", "1.1.0")
         )
         assertEquals(mapper.writeValueAsString(firstResult), firstFile.readText())
         val secondResult = setOf(

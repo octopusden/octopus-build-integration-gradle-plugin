@@ -5,11 +5,6 @@ import org.gradle.api.Project
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.BuildIntegrationExtension
 import org.octopusden.octopus.build.integration.gradle.plugin.service.DependenciesExtractor
 import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.COMPONENT_REGISTRY_URL_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.CONFIGURATIONS_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.OUTPUT_FILE_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.PROJECTS_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask.Companion.SCAN_ENABLED_PROPERTY
 
 class BuildIntegrationGradlePlugin : Plugin<Project> {
 
@@ -38,20 +33,28 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
                     ?: dependenciesExtension.outputFile
             )
             task.dependencies.set(
-                DependenciesExtractor(
-                    project = project,
-                    manualComponents = dependenciesExtension.components.get(),
-                    scanEnabled = scanEnabledProvider.get(),
-                    componentsRegistryUrl = componentsRegistryUrlProvider.get(),
-                    projects = projectsProvider.get(),
-                    configurations = configurationsProvider.get()
-                ).extract()
+                if (scanEnabledProvider.get()) {
+                    DependenciesExtractor(
+                        project = project,
+                        componentsRegistryUrl = componentsRegistryUrlProvider.get(),
+                        projects = projectsProvider.get(),
+                        configurations = configurationsProvider.get()
+                    ).extract() + dependenciesExtension.components.get()
+                } else {
+                    dependenciesExtension.components.get()
+                }
             )
         }
     }
 
     companion object {
         const val EXPORT_DEPENDENCIES_TASK_NAME = "exportDependencies"
+
+        const val SCAN_ENABLED_PROPERTY = "buildIntegration.dependencies.scan.enabled"
+        const val COMPONENT_REGISTRY_URL_PROPERTY = "buildIntegration.dependencies.scan.componentsRegistryUrl"
+        const val PROJECTS_PROPERTY = "buildIntegration.dependencies.scan.projects"
+        const val CONFIGURATIONS_PROPERTY = "buildIntegration.dependencies.scan.configurations"
+        const val OUTPUT_FILE_PROPERTY = "buildIntegration.dependencies.outputFile"
     }
 
 }

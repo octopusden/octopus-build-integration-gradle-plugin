@@ -26,12 +26,4 @@ abstract class ExportDependenciesTask : DefaultTask() {
         outputFile.get().asFile.writeText(jsonResult)
         logger.info("ExportDependenciesTask: exported dependencies written to: ${outputFile.get().asFile.absolutePath}")
     }
-
-    companion object {
-        const val SCAN_ENABLED_PROPERTY = "buildIntegration.dependencies.scan.enabled"
-        const val COMPONENT_REGISTRY_URL_PROPERTY = "buildIntegration.dependencies.scan.componentsRegistryUrl"
-        const val PROJECTS_PROPERTY = "buildIntegration.dependencies.scan.projects"
-        const val CONFIGURATIONS_PROPERTY = "buildIntegration.dependencies.scan.configurations"
-        const val OUTPUT_FILE_PROPERTY = "buildIntegration.dependencies.outputFile"
-    }
 }

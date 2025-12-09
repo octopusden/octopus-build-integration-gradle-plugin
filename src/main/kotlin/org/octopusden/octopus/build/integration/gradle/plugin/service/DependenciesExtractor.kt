@@ -1,6 +1,5 @@
 package org.octopusden.octopus.build.integration.gradle.plugin.service
 
-import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
@@ -11,50 +10,30 @@ import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsR
 import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
 import org.octopusden.octopus.components.registry.core.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
-import java.util.regex.PatternSyntaxException
 
 class DependenciesExtractor(
     private val project: Project,
-    private val manualComponents: Set<Component>,
-    private val scanEnabled: Boolean,
     private val componentsRegistryUrl: String,
     projects: String,
     configurations: String
 ) {
 
-    private val componentsRegistryClient: ComponentsRegistryServiceClient by lazy {
+    private val componentsRegistryClient: ComponentsRegistryServiceClient =
         ClassicComponentsRegistryServiceClient(
             object : ClassicComponentsRegistryServiceClientUrlProvider {
                 override fun getApiUrl(): String = componentsRegistryUrl
             }
         )
-    }
 
-    private val projectsRegex: Regex = regexProcessing(projects)
+    private val projectsRegex = projects.toRegex()
 
-    private val configurationsRegex = regexProcessing(configurations)
+    private val configurationsRegex = configurations.toRegex()
 
+    // Result may include components with the same name but different versions.
+    // Resolving such conflicts will be performed at later stages.
     fun extract(): Set<Component> {
-        validateManualComponents(manualComponents)
-        val gradleComponents = if (scanEnabled) {
-            val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
-            mapArtifactsToComponents(artifacts)
-        } else {
-            emptySet()
-        }
-        // Result may include components with the same name but different versions.
-        // Resolving such conflicts will be performed at later stages.
-        return manualComponents + gradleComponents
-    }
-
-    private fun validateManualComponents(components: Set<Component>) {
-        val invalidComponents = components.filter { !it.version.matches(versionRegex) }
-            .map { "DependenciesExtractor: Version format not valid ${it.name}:${it.version}" }
-        if (invalidComponents.isNotEmpty()) {
-            val message = invalidComponents.joinToString("\n")
-            logger.error(message)
-            throw GradleException(message)
-        }
+        val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
+        return mapArtifactsToComponents(artifacts)
     }
 
     private fun getDependenciesFromGradle(): Set<ModuleComponentIdentifier> {
@@ -90,7 +69,7 @@ class DependenciesExtractor(
                 isCanBeConsumed = false
                 isTransitive = false
                 extendsFrom(gradleConfig)
-                logger.info(
+                logger.debug(
                     "DependenciesExtractor: Created resolvable configuration '{}:{}' extending '{}'",
                     project.path, resolvableName, gradleConfig.name
                 )
@@ -106,19 +85,19 @@ class DependenciesExtractor(
 
     private fun matchesProjects(subproject: Project): Boolean {
         val passed = subproject.path.matches(projectsRegex)
-        logger.info("DependenciesExtractor: Projects filter {} passed={}", subproject.path, passed)
+        logger.debug("DependenciesExtractor: Projects filter {} passed={}", subproject.path, passed)
         return passed
     }
 
     private fun matchesConfigurations(configuration: Configuration): Boolean {
         val passed = configuration.name.matches(configurationsRegex)
-        logger.info("DependenciesExtractor: Configurations filter {} passed={}", configuration.name, passed)
+        logger.debug("DependenciesExtractor: Configurations filter {} passed={}", configuration.name, passed)
         return passed
     }
 
     private fun matchesSupportedGroups(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
         val passed = supportedGroupIds.any { id.group.startsWith(it) }
-        logger.info("DependenciesExtractor: SupportedGroups filter {} passed={}", id, passed)
+        logger.debug("DependenciesExtractor: SupportedGroups filter {} passed={}", id, passed)
         return passed
     }
 
@@ -136,17 +115,8 @@ class DependenciesExtractor(
         }.toSet()
     }
 
-    private fun regexProcessing(pattern: String): Regex {
-        return try {
-            pattern.toRegex()
-        } catch (e: PatternSyntaxException) {
-            throw GradleException("Invalid regex pattern: $pattern", e)
-        }
-    }
-
     companion object {
         private val logger = LoggerFactory.getLogger(DependenciesExtractor::class.java)
-        private val versionRegex = Regex("\\d+([._-]\\d+)*")
     }
 
 }
