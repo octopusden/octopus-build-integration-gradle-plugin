@@ -43,7 +43,7 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
                     // Resolving such conflicts will be performed at later stages.
                     DependenciesExtractor(
                         project = project,
-                        componentsRegistryUrl = componentsRegistryUrlProvider.get(),
+                        componentsRegistryUrl = componentsRegistryUrl,
                         projectsPattern = projectsProvider.get(),
                         configurationsPattern = configurationsProvider.get()
                     ).extract() + dependenciesExtension.components.get()
