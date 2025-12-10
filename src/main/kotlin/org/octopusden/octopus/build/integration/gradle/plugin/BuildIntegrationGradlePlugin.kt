@@ -1,5 +1,6 @@
 package org.octopusden.octopus.build.integration.gradle.plugin
 
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.BuildIntegrationExtension
@@ -34,11 +35,17 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
             )
             task.dependencies.set(
                 if (scanEnabledProvider.get()) {
+                    val componentsRegistryUrl = componentsRegistryUrlProvider.orNull
+                    if (componentsRegistryUrl.isNullOrBlank()) {
+                        throw GradleException("'scan' is enabled, but 'componentsRegistryUrl' is not configured!")
+                    }
+                    // Result may include components with the same name but different versions.
+                    // Resolving such conflicts will be performed at later stages.
                     DependenciesExtractor(
                         project = project,
                         componentsRegistryUrl = componentsRegistryUrlProvider.get(),
-                        projects = projectsProvider.get(),
-                        configurations = configurationsProvider.get()
+                        projectsPattern = projectsProvider.get(),
+                        configurationsPattern = configurationsProvider.get()
                     ).extract() + dependenciesExtension.components.get()
                 } else {
                     dependenciesExtension.components.get()

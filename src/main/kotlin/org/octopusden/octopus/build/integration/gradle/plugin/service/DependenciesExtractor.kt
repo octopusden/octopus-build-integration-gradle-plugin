@@ -14,8 +14,8 @@ import org.slf4j.LoggerFactory
 class DependenciesExtractor(
     private val project: Project,
     private val componentsRegistryUrl: String,
-    projects: String,
-    configurations: String
+    projectsPattern: String,
+    configurationsPattern: String
 ) {
 
     private val componentsRegistryClient: ComponentsRegistryServiceClient =
@@ -25,15 +25,23 @@ class DependenciesExtractor(
             }
         )
 
-    private val projectsRegex = projects.toRegex()
+    private val projectsRegex = projectsPattern.toRegex()
 
-    private val configurationsRegex = configurations.toRegex()
+    private val configurationsRegex = configurationsPattern.toRegex()
 
-    // Result may include components with the same name but different versions.
-    // Resolving such conflicts will be performed at later stages.
     fun extract(): Set<Component> {
         val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
-        return mapArtifactsToComponents(artifacts)
+        if (artifacts.isEmpty()) return emptySet()
+        val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
+        return response.artifactComponents.mapNotNull {
+            val comp = it.component
+            if (comp == null) {
+                logger.error("DependenciesExtractor: Component not found by artifact {}", it.artifact)
+                null
+            } else {
+                Component(comp.id, comp.version)
+            }
+        }.toSet()
     }
 
     private fun getDependenciesFromGradle(): Set<ModuleComponentIdentifier> {
@@ -99,20 +107,6 @@ class DependenciesExtractor(
         val passed = supportedGroupIds.any { id.group.startsWith(it) }
         logger.debug("DependenciesExtractor: SupportedGroups filter {} passed={}", id, passed)
         return passed
-    }
-
-    private fun mapArtifactsToComponents(artifacts: Set<ArtifactDependency>): Set<Component> {
-        if (artifacts.isEmpty()) return emptySet()
-        val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
-        return response.artifactComponents.mapNotNull {
-            val comp = it.component
-            if (comp == null) {
-                logger.error("DependenciesExtractor: Component not found by artifact {}", it.artifact)
-                null
-            } else {
-                Component(comp.id, comp.version)
-            }
-        }.toSet()
     }
 
     companion object {

@@ -115,7 +115,7 @@ tasks.named("assemble").configure {
 
 | `outputFile`
 | Name of the file to which the plugin will write the resulting dependency list.
-| export-dependencies-report.json
+| components-dependencies.json
 | `buildIntegration.dependencies.outputFile`
 
 |===

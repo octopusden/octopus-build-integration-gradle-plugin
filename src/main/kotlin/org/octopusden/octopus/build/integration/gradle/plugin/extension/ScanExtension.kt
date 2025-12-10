@@ -12,7 +12,6 @@ abstract class ScanExtension @Inject constructor(
         .convention(DEFAULT_ENABLED)
 
     val componentsRegistryUrl: Property<String> = objects.property(String::class.java)
-        .convention("")
 
     val projects: Property<String> = objects.property(String::class.java)
         .convention(DEFAULT_PROJECTS)

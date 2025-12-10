@@ -34,6 +34,6 @@ abstract class DependenciesExtension @Inject constructor(
     ) : Serializable
 
     companion object {
-        const val DEFAULT_OUTPUT_FILE = "export-dependencies-report.json"
+        const val DEFAULT_OUTPUT_FILE = "components-dependencies.json"
     }
 }
