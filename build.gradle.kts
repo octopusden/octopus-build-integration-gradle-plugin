@@ -54,6 +54,8 @@ ext {
         set("okdProject", it.getOrDefault("OKD_PROJECT", properties["okd.project"]))
         set("okdClusterDomain", it.getOrDefault("OKD_CLUSTER_DOMAIN", properties["okd.cluster-domain"]))
         set("okdWebConsoleUrl", (it.getOrDefault("OKD_WEB_CONSOLE_URL", properties["okd.web-console-url"]) as String).trimEnd('/'))
+        set("java8Home", it.getOrDefault("JDK_8", properties["test.java8-home"]))
+        set("java17Home", it.getOrDefault("JDK_17", properties["test.java17-home"]))
     }
 }
 fun String.getExt() = project.ext[this].toString()
@@ -67,8 +69,8 @@ val testParameters by lazy {
     mapOf(
         "octopus-build-integration.version" to project.version,
         "test.components-registry-host" to ocTemplate.getOkdHost("comp-reg"),
-        "test.java8-home" to properties["test.java8-home"] as String,
-        "test.java17-home" to properties["test.java17-home"] as String
+        "test.java8-home" to "java8Home".getExt(),
+        "test.java17-home" to "java17Home".getExt()
     )
 }
 
@@ -77,6 +79,11 @@ tasks.test {
     dependsOn("publishToMavenLocal")
     ocTemplate.isRequiredBy(this)
     doFirst {
+        listOf("okdProject", "okdClusterDomain", "okdWebConsoleUrl", "java8Home", "java17Home").forEach {
+            if (it.getExt().isBlank()) {
+                throw GradleException("Required property '$it' is missing or empty. Tests cannot be executed.")
+            }
+        }
         testParameters.forEach { systemProperty(it.key, it.value) }
     }
 }

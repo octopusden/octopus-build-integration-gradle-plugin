@@ -6,7 +6,8 @@
 
 == Purpose of the Plugin
 
-`Octopus Build Integration Gradle Plugin` adds the ability to export the list of components your project depends on into a file.
+`Octopus Build Integration Gradle Plugin` adds the ability to export the list of components your project depends on into a file,
+with only direct (non-transitive) dependencies being considered.
 
 The list is formed based on:
 

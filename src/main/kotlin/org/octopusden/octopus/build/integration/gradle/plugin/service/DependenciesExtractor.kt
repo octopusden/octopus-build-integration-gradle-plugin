@@ -1,5 +1,6 @@
 package org.octopusden.octopus.build.integration.gradle.plugin.service
 
+import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
@@ -32,7 +33,11 @@ class DependenciesExtractor(
     fun extract(): Set<Component> {
         val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
         if (artifacts.isEmpty()) return emptySet()
-        val response = componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
+        val response = try {
+            componentsRegistryClient.findArtifactComponentsByArtifacts(artifacts)
+        } catch (e: Exception) {
+            throw GradleException("Failed to query Components Registry at '$componentsRegistryUrl': ${e.message}", e)
+        }
         return response.artifactComponents.mapNotNull {
             val comp = it.component
             if (comp == null) {
@@ -87,7 +92,11 @@ class DependenciesExtractor(
                 it.selected.id as ModuleComponentIdentifier
             } else null
         }
-        val supportedGroupIds = componentsRegistryClient.getSupportedGroupIds()
+        val supportedGroupIds = try {
+            componentsRegistryClient.getSupportedGroupIds()
+        } catch (e: Exception) {
+            throw GradleException("Failed to query Components Registry at '$componentsRegistryUrl': ${e.message}", e)
+        }
         return allResolvedIds.filter { matchesSupportedGroups(it, supportedGroupIds) }.toSet()
     }
 
