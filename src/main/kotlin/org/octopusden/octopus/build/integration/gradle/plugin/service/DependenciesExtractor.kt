@@ -32,23 +32,20 @@ class DependenciesExtractor(
 
     fun extract(): Set<Component> {
         val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
-        if (artifacts.isEmpty()) return emptySet()
-        return artifacts.chunked(50).flatMap {
-            val artifactComponents = try {
-                componentsRegistryClient.findArtifactComponentsByArtifacts(it.toSet())
-            } catch (e: Exception) {
-                throw GradleException("Failed to query Components Registry at '$componentsRegistryUrl': ${e.message}", e)
-            }
-            artifactComponents.artifactComponents.mapNotNull { artifactComponent ->
-                val component = artifactComponent.component
-                if (component == null) {
-                    logger.error("DependenciesExtractor: Component not found by artifact {}", artifactComponent.artifact)
-                    null
-                } else {
-                    Component(component.id, component.version)
+        return if (artifacts.isEmpty()) emptySet()
+        else try {
+            artifacts.chunked(50).flatMap { chunk ->
+                componentsRegistryClient.findArtifactComponentsByArtifacts(chunk.toSet()).artifactComponents.mapNotNull {
+                    if (it.component == null)
+                        logger.warn("DependenciesExtractor: Component not found by artifact {}", it.artifact)
+                    it.component?.let { component ->
+                        Component(component.id, component.version)
+                    }
                 }
-            }
-        }.toSet()
+            }.toSet()
+        } catch (e: Exception) {
+            throw GradleException("Failed to query Components Registry at '$componentsRegistryUrl': ${e.message}", e)
+        }
     }
 
     private fun getDependenciesFromGradle(): Set<ModuleComponentIdentifier> {
