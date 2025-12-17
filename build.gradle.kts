@@ -15,6 +15,7 @@ plugins {
 }
 
 group = "org.octopusden.octopus"
+description = "Octopus module for build integration gradle plugin"
 
 repositories {
     mavenCentral()
