@@ -1,0 +1,8 @@
+pluginManagement {
+    plugins {
+        id 'org.octopusden.octopus-build-integration' version (settings.ext['octopus-build-integration.version'] as String)
+    }
+}
+
+rootProject.name = 'test-project'
+include ':service-a'

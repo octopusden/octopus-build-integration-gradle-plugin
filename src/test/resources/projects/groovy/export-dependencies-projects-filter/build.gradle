@@ -1,0 +1,21 @@
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
+
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.25'
+    id 'org.octopusden.octopus-build-integration'
+}
+
+buildIntegration {
+    dependencies {
+        components.add(new Component('component_a', '1.0.0'))
+        components.add(new Component('component_b', '1.1.0'))
+
+        scan {
+            projects.set('.*:(service-a|service-b)')
+        }
+    }
+}
+
+dependencies {
+    implementation 'org.octopusden.octopus-cloud-commons:octopus-security-common:2.0.15'
+}
