@@ -183,6 +183,17 @@ publishing {
     }
 }
 
+signing {
+    isRequired = System.getenv().containsKey("ORG_GRADLE_PROJECT_signingKey") && System.getenv()
+        .containsKey("ORG_GRADLE_PROJECT_signingPassword")
+    val signingKey: String? by project
+    val signingPassword: String? by project
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign(publishing.publications)
+}
+
+project.tasks.findByPath("publish")?.dependsOn(":artifactoryPublish")
+
 tasks.asciidoctor {
     sources {
         include("**/*.adoc")
