@@ -1,0 +1,8 @@
+pluginManagement {
+    plugins {
+        id 'org.octopusden.octopus-build-integration' version (settings.ext['octopus-build-integration.version'] as String)
+        id 'org.jetbrains.kotlin.jvm' version (settings.ext['kotlin.version'] as String)
+    }
+}
+
+rootProject.name = "export-dependencies-jackson-conflict"

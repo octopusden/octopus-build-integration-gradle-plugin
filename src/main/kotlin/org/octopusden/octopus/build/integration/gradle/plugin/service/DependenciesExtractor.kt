@@ -6,10 +6,10 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
-import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClient
-import org.octopusden.octopus.components.registry.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
-import org.octopusden.octopus.components.registry.core.dto.ArtifactDependency
+import org.octopusden.octopus.components.registry.light.client.ComponentsRegistryServiceClient
+import org.octopusden.octopus.components.registry.light.client.impl.ClassicComponentsRegistryServiceClient
+import org.octopusden.octopus.components.registry.light.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
+import org.octopusden.octopus.components.registry.light.client.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
 
 class DependenciesExtractor(
