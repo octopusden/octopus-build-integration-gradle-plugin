@@ -160,6 +160,30 @@ class ExportDependenciesTest {
 
     @ParameterizedTest
     @MethodSource("testParameters")
+    fun testJacksonConflict(gradleVersion: String, javaHome: String, dsl: String) {
+        val (instance, projectPath) = gradleProcessInstance {
+            projectPath = "projects/$dsl/export-dependencies-jackson-conflict"
+            gradleWrapperPath = "wrappers/gradle-$gradleVersion"
+            tasks = EXPORT_DEPENDENCIES_COMMAND
+            additionalArguments = arrayOf(
+                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
+                "-P$SCAN_ENABLED_PROPERTY=true"
+            )
+            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+        }
+        assertEquals(0, instance.exitCode)
+        val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
+        assertTrue(file.exists(), "Dependencies file was not created")
+        val result = setOf(
+            Component("versions-api", "2.0.10"),
+            Component("component_a", "1.0.0"),
+            Component("component_b", "1.1.0")
+        )
+        assertEquals(mapper.writeValueAsString(result), file.readText())
+    }
+
+    @ParameterizedTest
+    @MethodSource("testParameters")
     fun testConfigurationCacheNotReuse(gradleVersion: String, javaHome: String, dsl: String) {
         val firstOutput = "first-out.json"
         val secondOutput = "second-out.json"

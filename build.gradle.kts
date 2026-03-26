@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.octopusden.octopus.infrastructure:components-registry-service-client:${properties["octopus-components-registry-service.version"]}")
+    implementation("org.octopusden.octopus.infrastructure:components-registry-service-light-client:${properties["octopus-components-registry-service.version"]}")
     implementation("com.fasterxml.jackson.core:jackson-annotations:${properties["jackson.version"]}")
     implementation("com.fasterxml.jackson.core:jackson-databind:${properties["jackson.version"]}")
     testApi("com.platformlib:platformlib-process-local:${properties["platformlib-process.version"]}")
