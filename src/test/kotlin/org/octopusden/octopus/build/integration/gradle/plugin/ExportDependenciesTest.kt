@@ -47,6 +47,22 @@ class ExportDependenciesTest {
 
     @ParameterizedTest
     @MethodSource("testParameters")
+    fun testGenerateDependencyTree(gradleVersion: String, javaHome: String, dsl: String) {
+        val (instance, _) = gradleProcessInstance {
+            projectPath = "projects/$dsl/generate-dependency-tree"
+            gradleWrapperPath = "wrappers/gradle-$gradleVersion"
+            tasks = arrayOf("dependencies")
+            additionalArguments = arrayOf(
+                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
+                "-P$SCAN_ENABLED_PROPERTY=false"
+            )
+            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+        }
+        assertEquals(0, instance.exitCode)
+    }
+
+    @ParameterizedTest
+    @MethodSource("testParameters")
     fun testProjectsFilter(gradleVersion: String, javaHome: String, dsl: String) {
         val (instance, projectPath) = gradleProcessInstance {
             projectPath = "projects/$dsl/export-dependencies-projects-filter"
