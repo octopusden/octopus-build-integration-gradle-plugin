@@ -124,10 +124,12 @@ class ExportDependenciesTest {
                 "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true",
                 "-P$PROJECTS_PROPERTY=^:$",
-                "-P$CONFIGURATIONS_PROPERTY=runtime.+|compile.+",
                 "-P$OUTPUT_FILE_PROPERTY=$outputFile"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                "ORG_GRADLE_PROJECT_$CONFIGURATIONS_PROPERTY" to "runtime.+|compile.+"
+            )
         }
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$outputFile").toFile()
