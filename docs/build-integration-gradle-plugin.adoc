@@ -21,6 +21,10 @@ To use the `Octopus Build Integration Gradle Plugin` in a project, follow these 
 1. Define the plugin version in `gradle.properties` using the parameter `octopus-build-integration.version`.
 2. Apply the plugin in `settings.gradle(.kts)`, as well as in the `build.gradle(.kts)` file of the required module
 
+The `exportDependencies` task is invoked explicitly by the build pipeline (TeamCity); it is not
+wired to run automatically after a build. To check the output locally, run `gradle exportDependencies`
+manually — the result is written to `build/components-dependencies.json` by default.
+
 [IMPORTANT]
 ====
 It is very important to use the **exact version parameter name**:
@@ -148,6 +152,14 @@ A component can be declared in either form:
 * `component("<name>", "<version>")` (convenient for the Kotlin DSL).
 
 If you need to include Gradle dependencies, you can configure scanning as follows:
+
+[NOTE]
+====
+Using the `scan { }` block form enables scanning automatically. Setting `scan` properties
+directly without the block (e.g. `releaseManagement.scan.projects.set(...)`) configures the
+values but does **not** enable scanning — in that case enable it explicitly via
+`scan { enabled.set(true) }` or `-Pdependencies.scan.enabled=true`.
+====
 
 .build.gradle.kts
 [source,kotlin]
