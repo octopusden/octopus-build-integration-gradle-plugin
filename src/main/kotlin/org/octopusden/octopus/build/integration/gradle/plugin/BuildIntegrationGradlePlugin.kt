@@ -17,7 +17,7 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
             .map { it.toBoolean() }
             .orElse(scan.enabled)
 
-        val componentsRegistryUrlProvider = project.providers.gradleProperty(COMPONENT_REGISTRY_URL_PROPERTY)
+        val componentsRegistryUrlProvider = project.providers.environmentVariable(COMPONENT_REGISTRY_SERVICE_URL_ENV)
             .orElse(scan.componentsRegistryUrl)
 
         val projectsProvider = project.providers.gradleProperty(PROJECTS_PROPERTY)
@@ -57,11 +57,13 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
     companion object {
         const val EXPORT_DEPENDENCIES_TASK_NAME = "exportDependencies"
 
-        const val SCAN_ENABLED_PROPERTY = "releaseManagement.scan.enabled"
-        const val COMPONENT_REGISTRY_URL_PROPERTY = "releaseManagement.scan.componentsRegistryUrl"
-        const val PROJECTS_PROPERTY = "releaseManagement.scan.projects"
-        const val CONFIGURATIONS_PROPERTY = "releaseManagement.scan.configurations"
-        const val OUTPUT_FILE_PROPERTY = "releaseManagement.outputFile"
+        // Components Registry URL is supplied via an environment variable, matching octopus-rm-gradle-plugin.
+        const val COMPONENT_REGISTRY_SERVICE_URL_ENV = "COMPONENT_REGISTRY_SERVICE_URL"
+
+        const val SCAN_ENABLED_PROPERTY = "dependencies.scan.enabled"
+        const val PROJECTS_PROPERTY = "dependencies.scan.projects"
+        const val CONFIGURATIONS_PROPERTY = "dependencies.scan.configurations"
+        const val OUTPUT_FILE_PROPERTY = "dependencies.outputFile"
     }
 
 }

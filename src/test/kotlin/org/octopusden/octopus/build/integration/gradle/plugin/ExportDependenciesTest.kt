@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.COMPONENT_REGISTRY_URL_PROPERTY
+import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.COMPONENT_REGISTRY_SERVICE_URL_ENV
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.CONFIGURATIONS_PROPERTY
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.EXPORT_DEPENDENCIES_TASK_NAME
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.OUTPUT_FILE_PROPERTY
@@ -30,10 +30,12 @@ class ExportDependenciesTest {
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
             additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=false"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
         }
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
@@ -53,10 +55,12 @@ class ExportDependenciesTest {
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = arrayOf("dependencies")
             additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=false"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
         }
         assertEquals(0, instance.exitCode)
     }
@@ -69,10 +73,12 @@ class ExportDependenciesTest {
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
             // No '-Pscan.enabled': scanning is enabled solely by the presence of the `scan { }` block.
-            additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost"
+            // Registry URL comes from the COMPONENT_REGISTRY_SERVICE_URL environment variable.
+            additionalArguments = arrayOf()
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
         }
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
@@ -94,10 +100,12 @@ class ExportDependenciesTest {
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
             additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
         }
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
@@ -121,13 +129,13 @@ class ExportDependenciesTest {
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
             additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true",
                 "-P$PROJECTS_PROPERTY=^:$",
                 "-P$OUTPUT_FILE_PROPERTY=$outputFile"
             )
             additionalEnvVariables = mapOf(
                 "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost",
                 "ORG_GRADLE_PROJECT_$CONFIGURATIONS_PROPERTY" to "runtime.+|compile.+"
             )
         }
@@ -152,10 +160,12 @@ class ExportDependenciesTest {
             additionalArguments = arrayOf(
                 "--configuration-cache",
                 "--configuration-cache-problems=fail",
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
         }
         assertEquals(0, firstRun.exitCode)
         val (secondRun, _) = gradleProcessInstance {
@@ -165,10 +175,12 @@ class ExportDependenciesTest {
             additionalArguments = arrayOf(
                 "--configuration-cache",
                 "--configuration-cache-problems=fail",
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
             reuseExistingDir = true
         }
         assertEquals(0, secondRun.exitCode)
@@ -184,10 +196,12 @@ class ExportDependenciesTest {
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
             additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
         }
         assertEquals(0, instance.exitCode)
         val file = projectPath.resolve("build/$DEFAULT_OUTPUT_FILE").toFile()
@@ -212,11 +226,13 @@ class ExportDependenciesTest {
             additionalArguments = arrayOf(
                 "--configuration-cache",
                 "--configuration-cache-problems=fail",
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=true",
                 "-P$OUTPUT_FILE_PROPERTY=$firstOutput"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
         }
         assertEquals(0, firstRun.exitCode)
         val (secondRun, _) = gradleProcessInstance {
@@ -226,11 +242,13 @@ class ExportDependenciesTest {
             additionalArguments = arrayOf(
                 "--configuration-cache",
                 "--configuration-cache-problems=fail",
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
                 "-P$SCAN_ENABLED_PROPERTY=false",
                 "-P$OUTPUT_FILE_PROPERTY=$secondOutput"
             )
-            additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
+            additionalEnvVariables = mapOf(
+                "JAVA_HOME" to javaHome,
+                COMPONENT_REGISTRY_SERVICE_URL_ENV to "http://$componentsRegistryHost"
+            )
             reuseExistingDir = true
         }
         assertEquals(0, secondRun.exitCode)

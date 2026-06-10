@@ -97,29 +97,38 @@ tasks.named("assemble").configure {
 | `scan.enabled`
 | Enables or disables Gradle dependency scanning. Declaring a `scan { }` block enables scanning implicitly; this flag (or the `-P` override) can still force it off.
 | false (true once a `scan { }` block is declared)
-| `releaseManagement.scan.enabled`
+| `-Pdependencies.scan.enabled`
 
 | `scan.componentsRegistryUrl`
-| URL of the Components Registry service.
+| URL of the Components Registry service. Used only when scanning is enabled.
 | -
-| `releaseManagement.scan.componentsRegistryUrl`
+| env `COMPONENT_REGISTRY_SERVICE_URL`
 
 | `scan.projects`
 | Regular expression used to filter projects by their path
 | .+
-| `releaseManagement.scan.projects`
+| `-Pdependencies.scan.projects`
 
 | `scan.configurations`
 | Regular expression used to select Gradle configurations from which dependencies are extracted.
 | runtime.+
-| `releaseManagement.scan.configurations`
+| `-Pdependencies.scan.configurations`
 
 | `outputFile`
 | Name of the file to which the plugin will write the resulting dependency list.
 | components-dependencies.json
-| `releaseManagement.outputFile`
+| `-Pdependencies.outputFile`
 
 |===
+
+[NOTE]
+====
+The Components Registry URL is resolved from the `COMPONENT_REGISTRY_SERVICE_URL`
+**environment variable** (consistent with `octopus-rm-gradle-plugin`), falling back to
+`scan.componentsRegistryUrl` from the DSL. The remaining settings are overridable via Gradle
+project properties (`-Pdependencies.*`). These override keys are independent of the
+`releaseManagement` / `releaseDependencies` / `scan` DSL block names.
+====
 
 === Configuring
 
