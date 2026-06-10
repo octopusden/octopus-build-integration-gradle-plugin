@@ -1,14 +1,12 @@
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-
 plugins {
     kotlin("jvm") version "2.2.21"
     id("org.octopusden.octopus-build-integration")
 }
 
-buildIntegration {
-    dependencies {
-        components.add(Component("component_a", "1.0.0"))
-        components.add(Component("component_b", "1.1.0"))
+releaseManagement {
+    releaseDependencies {
+        component("component_a", "1.0.0")
+        component("component_b:1.1.0")
     }
 }
 

@@ -8,7 +8,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.Component
 
 abstract class ExportDependenciesTask : DefaultTask() {
 

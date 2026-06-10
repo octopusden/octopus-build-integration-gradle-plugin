@@ -89,51 +89,53 @@ tasks.named("assemble").configure {
 | Default
 | Override via `-P`
 
-| `components`
-| List of explicitly components.
+| `releaseDependencies { component ... }`
+| Explicitly declared components (see the forms below).
 | -
 | -
 
 | `scan.enabled`
-| Enables or disables Gradle dependency scanning
-| false
-| `buildIntegration.dependencies.scan.enabled`
+| Enables or disables Gradle dependency scanning. Declaring a `scan { }` block enables scanning implicitly; this flag (or the `-P` override) can still force it off.
+| false (true once a `scan { }` block is declared)
+| `releaseManagement.scan.enabled`
 
 | `scan.componentsRegistryUrl`
 | URL of the Components Registry service.
 | -
-| `buildIntegration.dependencies.scan.componentsRegistryUrl`
+| `releaseManagement.scan.componentsRegistryUrl`
 
 | `scan.projects`
 | Regular expression used to filter projects by their path
 | .+
-| `buildIntegration.dependencies.scan.projects`
+| `releaseManagement.scan.projects`
 
 | `scan.configurations`
 | Regular expression used to select Gradle configurations from which dependencies are extracted.
 | runtime.+
-| `buildIntegration.dependencies.scan.configurations`
+| `releaseManagement.scan.configurations`
 
 | `outputFile`
 | Name of the file to which the plugin will write the resulting dependency list.
 | components-dependencies.json
-| `buildIntegration.dependencies.outputFile`
+| `releaseManagement.outputFile`
 
 |===
 
 === Configuring
 
-If you want to explicitly add a component, it can be done as follows:
+All configuration lives under the `releaseManagement` extension. Explicit components are
+declared in a `releaseDependencies { }` block and scanning is configured in a sibling
+`scan { }` block.
+
+If you want to explicitly add a component, it can be done as follows (no import required):
 
 .build.gradle.kts
 [source,kotlin]
 ----
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-
-buildIntegration {
-    dependencies {
-        components.add(Component("component_a", "1.0.0"))
-        components.add(Component("component_b", "1.1.0"))
+releaseManagement {
+    releaseDependencies {
+        component("component_a", "1.0.0")
+        component("component_b:1.1.0")
     }
 }
 ----
@@ -141,37 +143,40 @@ buildIntegration {
 .build.gradle
 [source,groovy]
 ----
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-
-buildIntegration {
-    dependencies {
-        components.add(new Component('component_a', '1.0.0'))
-        components.add(new Component('component_b', '1.1.0'))
+releaseManagement {
+    releaseDependencies {
+        component name: 'component_a', version: '1.0.0'
+        component 'component_b:1.1.0'
     }
 }
 ----
 
+A component can be declared in either form:
 
-If you need to include Gradle dependencies, you can configure scanning as follows:
+* `component name: "<name>", version: "<version>"` (Groovy named arguments);
+* `component "<name>:<version>"` (single string);
+* `component("<name>", "<version>")` (convenient for the Kotlin DSL).
+
+If you need to include Gradle dependencies, you can configure scanning as follows. Declaring
+a `scan { }` block enables scanning automatically — `scan.componentsRegistryUrl` must be
+provided (usually via the `-P` override):
 
 .build.gradle.kts
 [source,kotlin]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // only root project ":"
-            projects.set("^:$")
+releaseManagement {
+    scan {
+        // only root project ":"
+        projects.set("^:$")
 
-            // only subproject ":service-a"
-            projects.set(".*:service-a")
+        // only subproject ":service-a"
+        projects.set(".*:service-a")
 
-            // subprojects ":service-a" and ":service-b"
-            projects.set(".*:(service-a|service-b)")
+        // subprojects ":service-a" and ":service-b"
+        projects.set(".*:(service-a|service-b)")
 
-            // exclude subprojects with names starting with "legacy-"
-            projects.set("^(?!.*:legacy-).+")
-        }
+        // exclude subprojects with names starting with "legacy-"
+        projects.set("^(?!.*:legacy-).+")
     }
 }
 ----
@@ -179,21 +184,19 @@ buildIntegration {
 .build.gradle
 [source,groovy]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // only root project ":"
-            projects.set('^:$')
+releaseManagement {
+    scan {
+        // only root project ":"
+        projects.set('^:$')
 
-            // only subproject ":service-a"
-            projects.set('.*:service-a')
+        // only subproject ":service-a"
+        projects.set('.*:service-a')
 
-            // subprojects ":service-a" and ":service-b"
-            projects.set('.*:(service-a|service-b)')
+        // subprojects ":service-a" and ":service-b"
+        projects.set('.*:(service-a|service-b)')
 
-             // exclude subprojects with names starting with "legacy-"
-            projects.set('^(?!.*:legacy-).+')
-        }
+         // exclude subprojects with names starting with "legacy-"
+        projects.set('^(?!.*:legacy-).+')
     }
 }
 ----
@@ -203,15 +206,13 @@ If you need to filter Gradle configurations from which dependencies are collecte
 .build.gradle.kts
 [source,kotlin]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // include runtimeClasspath and compileClasspath dependencies
-            configurations.set("(runtimeClasspath|compileClasspath)")
+releaseManagement {
+    scan {
+        // include runtimeClasspath and compileClasspath dependencies
+        configurations.set("(runtimeClasspath|compileClasspath)")
 
-            // exclude test dependencies
-            configurations.set("^(?!test).*")
-        }
+        // exclude test dependencies
+        configurations.set("^(?!test).*")
     }
 }
 ----
@@ -219,18 +220,58 @@ buildIntegration {
 .build.gradle
 [source,groovy]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // include runtimeClasspath and compileClasspath dependencies
-            configurations.set('(runtimeClasspath|compileClasspath)')
+releaseManagement {
+    scan {
+        // include runtimeClasspath and compileClasspath dependencies
+        configurations.set('(runtimeClasspath|compileClasspath)')
 
-            // exclude test dependencies
-            configurations.set('^(?!test).*')
-        }
+        // exclude test dependencies
+        configurations.set('^(?!test).*')
     }
 }
 ----
+
+== Migrating from octopus-rm-gradle-plugin
+
+This plugin reuses the `releaseManagement { }` extension name and the explicit
+`releaseDependencies { component ... }` syntax from `octopus-rm-gradle-plugin`, so projects
+that only declared explicit components migrate with **no configuration changes** — just
+replace the plugin.
+
+Projects that scanned dependencies need to rewrite that part, because the scanning model
+changed: instead of filtering resolved artifacts by `group`/`module`, scanning now selects
+which subprojects (`scan.projects`) and which Gradle configurations (`scan.configurations`)
+to read.
+
+[cols="5,5,3", options="header"]
+|===
+| octopus-rm-gradle-plugin | This plugin | Notes
+
+| `component name: "x", version: "y"`
+| `component name: "x", version: "y"`
+| Identical.
+
+| `component "x:y"`
+| `component "x:y"`
+| Identical.
+
+| `releaseDependencies { fromDependencies { ... } }`
+| `scan { projects.set(...); configurations.set(...) }` (sibling of `releaseDependencies`)
+| Different filtering model; the `scan` block lives directly under `releaseManagement`.
+
+| `fromDependencies { include module: "...", group: "..." }`
+| `scan { projects.set(...); configurations.set(...) }`
+| Rewrite to project/configuration regexes. Only artifacts whose group is registered in the Components Registry are kept.
+
+| `fromDependencies { exclude ... }`
+| —
+| No direct equivalent. Narrow the `scan` regexes instead.
+
+| presence of `fromDependencies` turned scanning on
+| presence of a `scan { }` block turns scanning on
+| Same ergonomics.
+
+|===
 
 '''
 The latest version of the plugin is {version-label}

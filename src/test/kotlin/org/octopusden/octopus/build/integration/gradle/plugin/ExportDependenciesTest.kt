@@ -13,8 +13,8 @@ import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGr
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.OUTPUT_FILE_PROPERTY
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.PROJECTS_PROPERTY
 import org.octopusden.octopus.build.integration.gradle.plugin.BuildIntegrationGradlePlugin.Companion.SCAN_ENABLED_PROPERTY
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Companion.DEFAULT_OUTPUT_FILE
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.Component
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.ReleaseManagementExtension.Companion.DEFAULT_OUTPUT_FILE
 import org.octopusden.octopus.build.integration.gradle.plugin.runner.gradleProcessInstance
 import java.util.stream.Stream
 
@@ -68,9 +68,9 @@ class ExportDependenciesTest {
             projectPath = "projects/$dsl/export-dependencies-projects-filter"
             gradleWrapperPath = "wrappers/gradle-$gradleVersion"
             tasks = EXPORT_DEPENDENCIES_COMMAND
+            // No '-Pscan.enabled': scanning is enabled solely by the presence of the `scan { }` block.
             additionalArguments = arrayOf(
-                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost",
-                "-P$SCAN_ENABLED_PROPERTY=true"
+                "-P$COMPONENT_REGISTRY_URL_PROPERTY=http://$componentsRegistryHost"
             )
             additionalEnvVariables = mapOf("JAVA_HOME" to javaHome)
         }
