@@ -57,7 +57,6 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
     companion object {
         const val EXPORT_DEPENDENCIES_TASK_NAME = "exportDependencies"
 
-        // Components Registry URL is supplied via an environment variable, matching octopus-rm-gradle-plugin.
         const val COMPONENT_REGISTRY_SERVICE_URL_ENV = "COMPONENT_REGISTRY_SERVICE_URL"
 
         const val SCAN_ENABLED_PROPERTY = "dependencies.scan.enabled"

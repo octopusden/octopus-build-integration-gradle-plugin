@@ -20,8 +20,6 @@ To use the `Octopus Build Integration Gradle Plugin` in a project, follow these 
 
 1. Define the plugin version in `gradle.properties` using the parameter `octopus-build-integration.version`.
 2. Apply the plugin in `settings.gradle(.kts)`, as well as in the `build.gradle(.kts)` file of the required module
-3. Ensure the `exportDependencies` task runs automatically by adding it
-as a dependency of a task that always executes (for example, `assemble`).
 
 [IMPORTANT]
 ====
@@ -50,10 +48,6 @@ pluginManagement {
 plugins {
     id("org.octopusden.octopus-build-integration")
 }
-
-tasks.named("assemble") {
-    dependsOn("exportDependencies")
-}
 ----
 
 === Groovy DSL
@@ -73,10 +67,6 @@ pluginManagement {
 ----
 plugins {
     id 'org.octopusden.octopus-build-integration'
-}
-
-tasks.named("assemble").configure {
-    dependsOn "exportDependencies"
 }
 ----
 
@@ -121,15 +111,6 @@ tasks.named("assemble").configure {
 
 |===
 
-[NOTE]
-====
-The Components Registry URL is resolved from the `COMPONENT_REGISTRY_SERVICE_URL`
-**environment variable** (consistent with `octopus-rm-gradle-plugin`), falling back to
-`scan.componentsRegistryUrl` from the DSL. The remaining settings are overridable via Gradle
-project properties (`-Pdependencies.*`). These override keys are independent of the
-`releaseManagement` / `releaseDependencies` / `scan` DSL block names.
-====
-
 === Configuring
 
 All configuration lives under the `releaseManagement` extension. Explicit components are
@@ -166,9 +147,7 @@ A component can be declared in either form:
 * `component "<name>:<version>"` (single string);
 * `component("<name>", "<version>")` (convenient for the Kotlin DSL).
 
-If you need to include Gradle dependencies, you can configure scanning as follows. Declaring
-a `scan { }` block enables scanning automatically — `scan.componentsRegistryUrl` must be
-provided (usually via the `-P` override):
+If you need to include Gradle dependencies, you can configure scanning as follows:
 
 .build.gradle.kts
 [source,kotlin]
@@ -239,48 +218,6 @@ releaseManagement {
     }
 }
 ----
-
-== Migrating from octopus-rm-gradle-plugin
-
-This plugin reuses the `releaseManagement { }` extension name and the explicit
-`releaseDependencies { component ... }` syntax from `octopus-rm-gradle-plugin`, so projects
-that only declared explicit components migrate with **no configuration changes** — just
-replace the plugin.
-
-Projects that scanned dependencies need to rewrite that part, because the scanning model
-changed: instead of filtering resolved artifacts by `group`/`module`, scanning now selects
-which subprojects (`scan.projects`) and which Gradle configurations (`scan.configurations`)
-to read.
-
-[cols="5,5,3", options="header"]
-|===
-| octopus-rm-gradle-plugin | This plugin | Notes
-
-| `component name: "x", version: "y"`
-| `component name: "x", version: "y"`
-| Identical.
-
-| `component "x:y"`
-| `component "x:y"`
-| Identical.
-
-| `releaseDependencies { fromDependencies { ... } }`
-| `scan { projects.set(...); configurations.set(...) }` (sibling of `releaseDependencies`)
-| Different filtering model; the `scan` block lives directly under `releaseManagement`.
-
-| `fromDependencies { include module: "...", group: "..." }`
-| `scan { projects.set(...); configurations.set(...) }`
-| Rewrite to project/configuration regexes. Only artifacts whose group is registered in the Components Registry are kept.
-
-| `fromDependencies { exclude ... }`
-| —
-| No direct equivalent. Narrow the `scan` regexes instead.
-
-| presence of `fromDependencies` turned scanning on
-| presence of a `scan { }` block turns scanning on
-| Same ergonomics.
-
-|===
 
 '''
 The latest version of the plugin is {version-label}
