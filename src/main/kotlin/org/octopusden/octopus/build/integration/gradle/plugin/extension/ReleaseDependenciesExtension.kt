@@ -19,7 +19,7 @@ abstract class ReleaseDependenciesExtension @Inject constructor(
             ?: throw GradleException("Incorrect component declaration $declaration. 'name' is required")
         val version = declaration["version"]?.toString()
             ?: throw GradleException("Incorrect component declaration $declaration. 'version' is required")
-        components.add(Component(name, version))
+        addComponent(name, version)
     }
 
     /**
@@ -30,13 +30,25 @@ abstract class ReleaseDependenciesExtension @Inject constructor(
         if (items.size != 2) {
             throw GradleException("Incorrect component format for $declaration. Should be 'componentName:version'")
         }
-        components.add(Component(items[0], items[1]))
+        addComponent(items[0], items[1])
     }
 
     /**
      * Explicit form, convenient for the Kotlin DSL: `component("deployer", "1.0.0")`.
      */
     fun component(name: String, version: String) {
-        components.add(Component(name, version))
+        addComponent(name, version)
+    }
+
+    private fun addComponent(name: String, version: String) {
+        val trimmedName = name.trim()
+        val trimmedVersion = version.trim()
+        if (trimmedName.isEmpty()) {
+            throw GradleException("Incorrect component declaration: 'name' must not be blank")
+        }
+        if (trimmedVersion.isEmpty()) {
+            throw GradleException("Incorrect component declaration: 'version' must not be blank")
+        }
+        components.add(Component(trimmedName, trimmedVersion))
     }
 }

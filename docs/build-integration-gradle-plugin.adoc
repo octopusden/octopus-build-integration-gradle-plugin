@@ -77,7 +77,7 @@ plugins {
 | DSL Element
 | Description
 | Default
-| Override via `-P`
+| Override
 
 | `releaseDependencies { component ... }`
 | Explicitly declared components (see the forms below).
