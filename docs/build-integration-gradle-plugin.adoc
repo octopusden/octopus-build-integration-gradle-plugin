@@ -20,8 +20,10 @@ To use the `Octopus Build Integration Gradle Plugin` in a project, follow these 
 
 1. Define the plugin version in `gradle.properties` using the parameter `octopus-build-integration.version`.
 2. Apply the plugin in `settings.gradle(.kts)`, as well as in the `build.gradle(.kts)` file of the required module
-3. Ensure the `exportDependencies` task runs automatically by adding it
-as a dependency of a task that always executes (for example, `assemble`).
+
+The `exportDependencies` task is invoked explicitly by the build pipeline (TeamCity); it is not
+wired to run automatically after a build. To check the output locally, run `gradle exportDependencies`
+manually — the result is written to `build/components-dependencies.json` by default.
 
 [IMPORTANT]
 ====
@@ -50,10 +52,6 @@ pluginManagement {
 plugins {
     id("org.octopusden.octopus-build-integration")
 }
-
-tasks.named("assemble") {
-    dependsOn("exportDependencies")
-}
 ----
 
 === Groovy DSL
@@ -74,10 +72,6 @@ pluginManagement {
 plugins {
     id 'org.octopusden.octopus-build-integration'
 }
-
-tasks.named("assemble").configure {
-    dependsOn "exportDependencies"
-}
 ----
 
 == Plugin Configuration
@@ -87,53 +81,55 @@ tasks.named("assemble").configure {
 | DSL Element
 | Description
 | Default
-| Override via `-P`
+| Override
 
-| `components`
-| List of explicitly components.
+| `releaseDependencies { component ... }`
+| Explicitly declared components (see the forms below).
 | -
 | -
 
 | `scan.enabled`
-| Enables or disables Gradle dependency scanning
-| false
-| `buildIntegration.dependencies.scan.enabled`
+| Enables or disables Gradle dependency scanning. Declaring a `scan { }` block enables scanning implicitly; this flag (or the `-P` override) can still force it off.
+| false (true once a `scan { }` block is declared)
+| `-Pdependencies.scan.enabled`
 
 | `scan.componentsRegistryUrl`
-| URL of the Components Registry service.
+| URL of the Components Registry service. Used only when scanning is enabled.
 | -
-| `buildIntegration.dependencies.scan.componentsRegistryUrl`
+| env `COMPONENT_REGISTRY_SERVICE_URL`
 
 | `scan.projects`
 | Regular expression used to filter projects by their path
 | .+
-| `buildIntegration.dependencies.scan.projects`
+| `-Pdependencies.scan.projects`
 
 | `scan.configurations`
 | Regular expression used to select Gradle configurations from which dependencies are extracted.
 | runtime.+
-| `buildIntegration.dependencies.scan.configurations`
+| `-Pdependencies.scan.configurations`
 
 | `outputFile`
 | Name of the file to which the plugin will write the resulting dependency list.
 | components-dependencies.json
-| `buildIntegration.dependencies.outputFile`
+| `-Pdependencies.outputFile`
 
 |===
 
 === Configuring
 
-If you want to explicitly add a component, it can be done as follows:
+All configuration lives under the `releaseManagement` extension. Explicit components are
+declared in a `releaseDependencies { }` block and scanning is configured in a sibling
+`scan { }` block.
+
+If you want to explicitly add a component, it can be done as follows (no import required):
 
 .build.gradle.kts
 [source,kotlin]
 ----
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-
-buildIntegration {
-    dependencies {
-        components.add(Component("component_a", "1.0.0"))
-        components.add(Component("component_b", "1.1.0"))
+releaseManagement {
+    releaseDependencies {
+        component("component_a", "1.0.0")
+        component("component_b:1.1.0")
     }
 }
 ----
@@ -141,37 +137,46 @@ buildIntegration {
 .build.gradle
 [source,groovy]
 ----
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-
-buildIntegration {
-    dependencies {
-        components.add(new Component('component_a', '1.0.0'))
-        components.add(new Component('component_b', '1.1.0'))
+releaseManagement {
+    releaseDependencies {
+        component name: 'component_a', version: '1.0.0'
+        component 'component_b:1.1.0'
     }
 }
 ----
 
+A component can be declared in either form:
+
+* `component name: "<name>", version: "<version>"` (Groovy named arguments);
+* `component "<name>:<version>"` (single string);
+* `component("<name>", "<version>")` (convenient for the Kotlin DSL).
 
 If you need to include Gradle dependencies, you can configure scanning as follows:
 
+[NOTE]
+====
+Using the `scan { }` block form enables scanning automatically. Setting `scan` properties
+directly without the block (e.g. `releaseManagement.scan.projects.set(...)`) configures the
+values but does **not** enable scanning — in that case enable it explicitly via
+`scan { enabled.set(true) }` or `-Pdependencies.scan.enabled=true`.
+====
+
 .build.gradle.kts
 [source,kotlin]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // only root project ":"
-            projects.set("^:$")
+releaseManagement {
+    scan {
+        // only root project ":"
+        projects.set("^:$")
 
-            // only subproject ":service-a"
-            projects.set(".*:service-a")
+        // only subproject ":service-a"
+        projects.set(".*:service-a")
 
-            // subprojects ":service-a" and ":service-b"
-            projects.set(".*:(service-a|service-b)")
+        // subprojects ":service-a" and ":service-b"
+        projects.set(".*:(service-a|service-b)")
 
-            // exclude subprojects with names starting with "legacy-"
-            projects.set("^(?!.*:legacy-).+")
-        }
+        // exclude subprojects with names starting with "legacy-"
+        projects.set("^(?!.*:legacy-).+")
     }
 }
 ----
@@ -179,21 +184,19 @@ buildIntegration {
 .build.gradle
 [source,groovy]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // only root project ":"
-            projects.set('^:$')
+releaseManagement {
+    scan {
+        // only root project ":"
+        projects.set('^:$')
 
-            // only subproject ":service-a"
-            projects.set('.*:service-a')
+        // only subproject ":service-a"
+        projects.set('.*:service-a')
 
-            // subprojects ":service-a" and ":service-b"
-            projects.set('.*:(service-a|service-b)')
+        // subprojects ":service-a" and ":service-b"
+        projects.set('.*:(service-a|service-b)')
 
-             // exclude subprojects with names starting with "legacy-"
-            projects.set('^(?!.*:legacy-).+')
-        }
+         // exclude subprojects with names starting with "legacy-"
+        projects.set('^(?!.*:legacy-).+')
     }
 }
 ----
@@ -203,15 +206,13 @@ If you need to filter Gradle configurations from which dependencies are collecte
 .build.gradle.kts
 [source,kotlin]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // include runtimeClasspath and compileClasspath dependencies
-            configurations.set("(runtimeClasspath|compileClasspath)")
+releaseManagement {
+    scan {
+        // include runtimeClasspath and compileClasspath dependencies
+        configurations.set("(runtimeClasspath|compileClasspath)")
 
-            // exclude test dependencies
-            configurations.set("^(?!test).*")
-        }
+        // exclude test dependencies
+        configurations.set("^(?!test).*")
     }
 }
 ----
@@ -219,15 +220,13 @@ buildIntegration {
 .build.gradle
 [source,groovy]
 ----
-buildIntegration {
-    dependencies {
-        scan {
-            // include runtimeClasspath and compileClasspath dependencies
-            configurations.set('(runtimeClasspath|compileClasspath)')
+releaseManagement {
+    scan {
+        // include runtimeClasspath and compileClasspath dependencies
+        configurations.set('(runtimeClasspath|compileClasspath)')
 
-            // exclude test dependencies
-            configurations.set('^(?!test).*')
-        }
+        // exclude test dependencies
+        configurations.set('^(?!test).*')
     }
 }
 ----

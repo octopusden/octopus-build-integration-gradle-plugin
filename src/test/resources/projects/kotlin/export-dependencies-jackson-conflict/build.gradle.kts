@@ -1,5 +1,3 @@
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.DependenciesExtension.Component
-
 buildscript {
     dependencies {
         classpath(platform("com.fasterxml.jackson:jackson-bom:${project.properties["jackson.version"]}"))
@@ -14,10 +12,10 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version (project.properties["kotlin.version"] as String)
 }
 
-buildIntegration {
-    dependencies {
-        components.add(Component("component_a", "1.0.0"))
-        components.add(Component("component_b", "1.1.0"))
+releaseManagement {
+    releaseDependencies {
+        component("component_a", "1.0.0")
+        component("component_b:1.1.0")
     }
 }
 
@@ -28,4 +26,3 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-annotations")
     implementation("org.octopusden.octopus.releng:versions-api:2.0.10")
 }
-

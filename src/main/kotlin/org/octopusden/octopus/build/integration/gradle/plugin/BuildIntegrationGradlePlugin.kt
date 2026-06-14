@@ -3,35 +3,35 @@ package org.octopusden.octopus.build.integration.gradle.plugin
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.octopusden.octopus.build.integration.gradle.plugin.extension.BuildIntegrationExtension
+import org.octopusden.octopus.build.integration.gradle.plugin.extension.ReleaseManagementExtension
 import org.octopusden.octopus.build.integration.gradle.plugin.service.DependenciesExtractor
 import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask
 
 class BuildIntegrationGradlePlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
-        val extension = project.extensions.create("buildIntegration", BuildIntegrationExtension::class.java)
-        val dependenciesExtension = extension.dependenciesExtension
+        val extension = project.extensions.create("releaseManagement", ReleaseManagementExtension::class.java)
+        val scan = extension.scan
 
         val scanEnabledProvider = project.providers.gradleProperty(SCAN_ENABLED_PROPERTY)
             .map { it.toBoolean() }
-            .orElse(dependenciesExtension.scan.enabled)
+            .orElse(scan.enabled)
 
-        val componentsRegistryUrlProvider = project.providers.gradleProperty(COMPONENT_REGISTRY_URL_PROPERTY)
-            .orElse(dependenciesExtension.scan.componentsRegistryUrl)
+        val componentsRegistryUrlProvider = project.providers.environmentVariable(COMPONENT_REGISTRY_SERVICE_URL_ENV)
+            .orElse(scan.componentsRegistryUrl)
 
         val projectsProvider = project.providers.gradleProperty(PROJECTS_PROPERTY)
-            .orElse(dependenciesExtension.scan.projects)
+            .orElse(scan.projects)
 
         val configurationsProvider = project.providers.gradleProperty(CONFIGURATIONS_PROPERTY)
-            .orElse(dependenciesExtension.scan.configurations)
+            .orElse(scan.configurations)
 
         val outputFilePropertyProvider = project.providers.gradleProperty(OUTPUT_FILE_PROPERTY)
 
         project.tasks.register(EXPORT_DEPENDENCIES_TASK_NAME, ExportDependenciesTask::class.java) { task ->
             task.outputFile.set(
                 outputFilePropertyProvider.orNull?.let { project.layout.buildDirectory.file(it) }
-                    ?: dependenciesExtension.outputFile
+                    ?: extension.outputFile
             )
             task.dependencies.set(
                 if (scanEnabledProvider.get()) {
@@ -46,9 +46,9 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
                         componentsRegistryUrl = componentsRegistryUrl,
                         projectsPattern = projectsProvider.get(),
                         configurationsPattern = configurationsProvider.get()
-                    ).extract() + dependenciesExtension.components.get()
+                    ).extract() + extension.releaseDependencies.components.get()
                 } else {
-                    dependenciesExtension.components.get()
+                    extension.releaseDependencies.components.get()
                 }
             )
         }
@@ -57,11 +57,12 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
     companion object {
         const val EXPORT_DEPENDENCIES_TASK_NAME = "exportDependencies"
 
-        const val SCAN_ENABLED_PROPERTY = "buildIntegration.dependencies.scan.enabled"
-        const val COMPONENT_REGISTRY_URL_PROPERTY = "buildIntegration.dependencies.scan.componentsRegistryUrl"
-        const val PROJECTS_PROPERTY = "buildIntegration.dependencies.scan.projects"
-        const val CONFIGURATIONS_PROPERTY = "buildIntegration.dependencies.scan.configurations"
-        const val OUTPUT_FILE_PROPERTY = "buildIntegration.dependencies.outputFile"
+        const val COMPONENT_REGISTRY_SERVICE_URL_ENV = "COMPONENT_REGISTRY_SERVICE_URL"
+
+        const val SCAN_ENABLED_PROPERTY = "dependencies.scan.enabled"
+        const val PROJECTS_PROPERTY = "dependencies.scan.projects"
+        const val CONFIGURATIONS_PROPERTY = "dependencies.scan.configurations"
+        const val OUTPUT_FILE_PROPERTY = "dependencies.outputFile"
     }
 
 }

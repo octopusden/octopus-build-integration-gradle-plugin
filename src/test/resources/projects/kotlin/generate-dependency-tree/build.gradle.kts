@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.9.25"
+    kotlin("jvm") version "2.2.21"
     id("org.octopusden.octopus-build-integration")
 }
 
@@ -13,4 +13,9 @@ releaseManagement {
 dependencies {
     implementation("org.octopusden.octopus.infrastructure:components-registry-service-client:2.0.62")
     implementation("org.octopusden.octopus-cloud-commons:octopus-security-common:2.0.15")
+    implementation("org.octopusden.octopus.releng:versions-api:2.0.10")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-common")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host")
 }
