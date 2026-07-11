@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MatchingDeclarationName:BuildIntegrationRunner.kt$TestGradleDSL</ID>
+    <ID>MaxLineLength:DependenciesExtractor.kt$DependenciesExtractor$"DependenciesExtractor: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour"</ID>
+    <ID>SerialVersionUIDInSerializableClass:Component.kt$Component : Serializable</ID>
+    <ID>TooGenericExceptionCaught:DependenciesExtractor.kt$DependenciesExtractor$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:ExportDependenciesTest.kt$ExportDependenciesTest.Companion$throw Exception("System property 'test.components-registry-host' must be defined")</ID>
+    <ID>TooGenericExceptionThrown:ExportDependenciesTest.kt$ExportDependenciesTest.Companion$throw Exception("System property 'test.java17-home' must be defined")</ID>
+    <ID>TooGenericExceptionThrown:ExportDependenciesTest.kt$ExportDependenciesTest.Companion$throw Exception("System property 'test.java8-home' must be defined")</ID>
+  </CurrentIssues>
+</SmellBaseline>

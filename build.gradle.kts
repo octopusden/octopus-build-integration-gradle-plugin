@@ -1,4 +1,5 @@
 import com.platformlib.plugins.gradle.wrapper.task.DockerTask
+import org.gradle.api.tasks.util.PatternFilterable
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.Duration
 
@@ -12,10 +13,41 @@ plugins {
     id("org.octopusden.octopus.oc-template")
     id("org.asciidoctor.jvm.convert")
     id("com.platformlib.gradle-wrapper")
+    // Kotlin static analysis / formatting — applied to this (single) Kotlin module so the
+    // octopus-quality convention plugin actually wires detekt + ktlint over the sources.
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jlleitschuh.gradle.ktlint")
+    id("org.octopusden.octopus-quality")
 }
 
 group = "org.octopusden.octopus"
 description = "Octopus module for build integration gradle plugin"
+
+octopusQuality {
+    kotlin {
+        // Blocking mode; the committed detekt/ktlint baselines absorb current debt.
+        failOnViolation.set(true)
+    }
+    coverage {
+        // Repo has no jacoco/kover wiring — keep coverage gate disabled.
+        enabled.set(false)
+    }
+}
+
+// octopus-quality wires ktlint with a filter that excludes "**/build/**" to skip the Gradle
+// build output dir. This repo's package path (org.octopusden.octopus.build.integration...)
+// contains a literal "build" directory segment, so that glob matches every source file and
+// ktlint would run hollow (0 files). Re-scope the exclusion to the actual build output
+// directory so ktlint analyses the sources again.
+run {
+    val buildDirPath = layout.buildDirectory
+        .get()
+        .asFile.absolutePath
+    tasks.matching { it.name.startsWith("runKtlint") }.configureEach {
+        (this as PatternFilterable).setExcludes(listOf("**/generated/**"))
+        exclude { it.file.absolutePath.startsWith(buildDirPath) }
+    }
+}
 
 repositories {
     mavenCentral()
@@ -23,7 +55,9 @@ repositories {
 }
 
 dependencies {
-    implementation("org.octopusden.octopus.infrastructure:components-registry-service-light-client:${properties["octopus-components-registry-service.version"]}")
+    implementation(
+        "org.octopusden.octopus.infrastructure:components-registry-service-light-client:${properties["octopus-components-registry-service.version"]}",
+    )
     implementation("com.fasterxml.jackson.core:jackson-annotations:${properties["jackson.version"]}")
     implementation("com.fasterxml.jackson.core:jackson-databind:${properties["jackson.version"]}")
     testApi("com.platformlib:platformlib-process-local:${properties["platformlib-process.version"]}")
@@ -50,7 +84,10 @@ ext {
     System.getenv().let {
         set("signingRequired", it.containsKey("ORG_GRADLE_PROJECT_signingKey") && it.containsKey("ORG_GRADLE_PROJECT_signingPassword"))
         set("dockerRegistry", it.getOrDefault("DOCKER_REGISTRY", properties["docker.registry"]))
-        set("octopusGithubDockerRegistry", it.getOrDefault("OCTOPUS_GITHUB_DOCKER_REGISTRY", project.properties["octopus.github.docker.registry"]))
+        set(
+            "octopusGithubDockerRegistry",
+            it.getOrDefault("OCTOPUS_GITHUB_DOCKER_REGISTRY", project.properties["octopus.github.docker.registry"]),
+        )
         set("okdActiveDeadlineSeconds", it.getOrDefault("OKD_ACTIVE_DEADLINE_SECONDS", properties["okd.active-deadline-seconds"]))
         set("okdProject", it.getOrDefault("OKD_PROJECT", properties["okd.project"]))
         set("okdClusterDomain", it.getOrDefault("OKD_CLUSTER_DOMAIN", properties["okd.cluster-domain"]))
@@ -59,11 +96,12 @@ ext {
         set("java17Home", it.getOrDefault("JDK_17", properties["test.java17-home"]))
     }
 }
+
 fun String.getExt() = project.ext[this].toString()
 
 val commonOkdParameters = mapOf(
     "ACTIVE_DEADLINE_SECONDS" to "okdActiveDeadlineSeconds".getExt(),
-    "DOCKER_REGISTRY" to "dockerRegistry".getExt()
+    "DOCKER_REGISTRY" to "dockerRegistry".getExt(),
 )
 
 val testParameters by lazy {
@@ -71,7 +109,7 @@ val testParameters by lazy {
         "octopus-build-integration.version" to project.version,
         "test.components-registry-host" to ocTemplate.getOkdHost("comp-reg"),
         "test.java8-home" to "java8Home".getExt(),
-        "test.java17-home" to "java17Home".getExt()
+        "test.java17-home" to "java17Home".getExt(),
     )
 }
 
@@ -101,16 +139,22 @@ ocTemplate {
 
     service("comp-reg") {
         templateFile.set(rootProject.layout.projectDirectory.file("okd/template/components-registry.yaml"))
-        val componentsRegistryWorkDir = layout.projectDirectory.dir("src/test/resources/components-registry-data").asFile.absolutePath
-        parameters.set(commonOkdParameters + mapOf(
-            "COMPONENTS_REGISTRY_SERVICE_VERSION" to properties["octopus-components-registry-service.version"] as String,
-            "AGGREGATOR_GROOVY_CONTENT" to file("${componentsRegistryWorkDir}/Aggregator.groovy").readText(),
-            "DEFAULTS_GROOVY_CONTENT" to file("${componentsRegistryWorkDir}/Defaults.groovy").readText(),
-            "TEST_COMPONENTS_GROOVY_CONTENT" to file("${componentsRegistryWorkDir}/TestComponents.groovy").readText(),
-            "APPLICATION_DEV_CONTENT" to layout.projectDirectory.dir("okd/config/components-registry-service.yaml").asFile.readText()
-        ))
+        val componentsRegistryWorkDir = layout.projectDirectory
+            .dir("src/test/resources/components-registry-data")
+            .asFile.absolutePath
+        parameters.set(
+            commonOkdParameters + mapOf(
+                "COMPONENTS_REGISTRY_SERVICE_VERSION" to properties["octopus-components-registry-service.version"] as String,
+                "AGGREGATOR_GROOVY_CONTENT" to file("$componentsRegistryWorkDir/Aggregator.groovy").readText(),
+                "DEFAULTS_GROOVY_CONTENT" to file("$componentsRegistryWorkDir/Defaults.groovy").readText(),
+                "TEST_COMPONENTS_GROOVY_CONTENT" to file("$componentsRegistryWorkDir/TestComponents.groovy").readText(),
+                "APPLICATION_DEV_CONTENT" to layout.projectDirectory
+                    .dir("okd/config/components-registry-service.yaml")
+                    .asFile
+                    .readText(),
+            ),
+        )
     }
-
 }
 
 gradlePlugin {
@@ -185,8 +229,10 @@ publishing {
 }
 
 signing {
-    isRequired = System.getenv().containsKey("ORG_GRADLE_PROJECT_signingKey") && System.getenv()
-        .containsKey("ORG_GRADLE_PROJECT_signingPassword")
+    isRequired = System.getenv().containsKey("ORG_GRADLE_PROJECT_signingKey") &&
+        System
+            .getenv()
+            .containsKey("ORG_GRADLE_PROJECT_signingPassword")
     val signingKey: String? by project
     val signingPassword: String? by project
     useInMemoryPgpKeys(signingKey, signingPassword)
@@ -201,7 +247,7 @@ tasks.asciidoctor {
     }
     asciidoctorj {
         attributes(
-            mapOf("version-label" to project.version)
+            mapOf("version-label" to project.version),
         )
     }
 }
@@ -210,7 +256,10 @@ tasks.register<DockerTask>("publishToWiki") {
     val wikiUsername: String = (project.findProperty("wiki-username") as String?) ?: System.getenv("WIKI_USERNAME") ?: ""
     val wikiPassword: String = (project.findProperty("wiki-password") as String?) ?: System.getenv("WIKI_PASSWORD") ?: ""
     val wikiUrl = (project.findProperty("wiki-url") as String?) ?: System.getenv("WIKI_URL") ?: ""
-    val ancestorId = (project.findProperty("build-integration-gradle-plugin-page-id") as String?) ?: System.getenv("BUILD_INTEGRATION_GRADLE_PLUGIN_PAGE_ID") ?: ""
+    val ancestorId =
+        (project.findProperty("build-integration-gradle-plugin-page-id") as String?)
+            ?: System.getenv("BUILD_INTEGRATION_GRADLE_PLUGIN_PAGE_ID")
+            ?: ""
     image = "${"dockerRegistry".getExt()}/confluencepublisher/confluence-publisher:0.17.1"
     dockerOptions = listOf("--network", "host")
     bindMounts = listOf("${file("docs")}:/var/asciidoc-root-folder")
@@ -226,6 +275,6 @@ tasks.register<DockerTask>("publishToWiki") {
         "ORPHAN_REMOVAL_STRATEGY" to "KEEP_ORPHANS",
         "NOTIFY_WATCHERS" to "false",
         "ATTRIBUTES" to """{"version-label": "${project.version}"}""",
-        "CONVERT_ONLY" to "false"
+        "CONVERT_ONLY" to "false",
     )
 }

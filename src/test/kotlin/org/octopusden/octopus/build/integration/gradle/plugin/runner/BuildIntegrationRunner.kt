@@ -44,7 +44,7 @@ fun gradleProcessInstance(init: TestGradleDSL.() -> Unit): Pair<ProcessInstance,
         dir
     }
     val baseEnv = mapOf(
-        "JAVA_HOME" to System.getProperty("java.home")
+        "JAVA_HOME" to System.getProperty("java.home"),
     )
     val processInstance = ProcessBuilders
         .newProcessBuilder<ProcessBuilder>(LocalProcessSpec.LOCAL_COMMAND)
@@ -57,23 +57,30 @@ fun gradleProcessInstance(init: TestGradleDSL.() -> Unit): Pair<ProcessInstance,
         .commandAndArguments(tmpDir.resolve("gradlew").toString(), "--no-daemon")
         .build()
         .execute(
-            *(listOf(
-                "-P$BUILD_INTEGRATION_VERSION_PROPERTY=${System.getProperty(BUILD_INTEGRATION_VERSION_PROPERTY)}"
-            ) + spec.tasks + spec.additionalArguments).toTypedArray()
-        )
-        .toCompletableFuture()
+            *(
+                listOf(
+                    "-P$BUILD_INTEGRATION_VERSION_PROPERTY=${System.getProperty(BUILD_INTEGRATION_VERSION_PROPERTY)}",
+                ) + spec.tasks + spec.additionalArguments
+            ).toTypedArray(),
+        ).toCompletableFuture()
         .join()
 
     return processInstance to tmpDir
 }
 
-private fun getResourcePath(path: String, description: String): Path {
+private fun getResourcePath(
+    path: String,
+    description: String,
+): Path {
     val resource = TestGradleDSL::class.java.getResource(path)
         ?: error("$description '$path' not found in resources")
     return Paths.get(resource.toURI())
 }
 
-private fun copy(from: Path, to: Path) {
+private fun copy(
+    from: Path,
+    to: Path,
+) {
     Files.walk(from).forEach { src ->
         val dest = to.resolve(from.relativize(src).toString())
         if (Files.isDirectory(src)) {

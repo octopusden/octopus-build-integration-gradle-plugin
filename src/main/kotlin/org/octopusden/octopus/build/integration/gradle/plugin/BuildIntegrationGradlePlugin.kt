@@ -8,22 +8,25 @@ import org.octopusden.octopus.build.integration.gradle.plugin.service.Dependenci
 import org.octopusden.octopus.build.integration.gradle.plugin.task.ExportDependenciesTask
 
 class BuildIntegrationGradlePlugin : Plugin<Project> {
-
     override fun apply(project: Project) {
         val extension = project.extensions.create("releaseManagement", ReleaseManagementExtension::class.java)
         val scan = extension.scan
 
-        val scanEnabledProvider = project.providers.gradleProperty(SCAN_ENABLED_PROPERTY)
+        val scanEnabledProvider = project.providers
+            .gradleProperty(SCAN_ENABLED_PROPERTY)
             .map { it.toBoolean() }
             .orElse(scan.enabled)
 
-        val componentsRegistryUrlProvider = project.providers.environmentVariable(COMPONENT_REGISTRY_SERVICE_URL_ENV)
+        val componentsRegistryUrlProvider = project.providers
+            .environmentVariable(COMPONENT_REGISTRY_SERVICE_URL_ENV)
             .orElse(scan.componentsRegistryUrl)
 
-        val projectsProvider = project.providers.gradleProperty(PROJECTS_PROPERTY)
+        val projectsProvider = project.providers
+            .gradleProperty(PROJECTS_PROPERTY)
             .orElse(scan.projects)
 
-        val configurationsProvider = project.providers.gradleProperty(CONFIGURATIONS_PROPERTY)
+        val configurationsProvider = project.providers
+            .gradleProperty(CONFIGURATIONS_PROPERTY)
             .orElse(scan.configurations)
 
         val outputFilePropertyProvider = project.providers.gradleProperty(OUTPUT_FILE_PROPERTY)
@@ -31,7 +34,7 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
         project.tasks.register(EXPORT_DEPENDENCIES_TASK_NAME, ExportDependenciesTask::class.java) { task ->
             task.outputFile.set(
                 outputFilePropertyProvider.orNull?.let { project.layout.buildDirectory.file(it) }
-                    ?: extension.outputFile
+                    ?: extension.outputFile,
             )
             task.dependencies.set(
                 if (scanEnabledProvider.get()) {
@@ -45,11 +48,11 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
                         project = project,
                         componentsRegistryUrl = componentsRegistryUrl,
                         projectsPattern = projectsProvider.get(),
-                        configurationsPattern = configurationsProvider.get()
+                        configurationsPattern = configurationsProvider.get(),
                     ).extract() + extension.releaseDependencies.components.get()
                 } else {
                     extension.releaseDependencies.components.get()
-                }
+                },
             )
         }
     }
@@ -64,5 +67,4 @@ class BuildIntegrationGradlePlugin : Plugin<Project> {
         const val CONFIGURATIONS_PROPERTY = "dependencies.scan.configurations"
         const val OUTPUT_FILE_PROPERTY = "dependencies.outputFile"
     }
-
 }

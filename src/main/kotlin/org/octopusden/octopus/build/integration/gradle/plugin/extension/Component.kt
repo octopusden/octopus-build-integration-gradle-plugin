@@ -4,5 +4,5 @@ import java.io.Serializable
 
 data class Component(
     val name: String,
-    val version: String
+    val version: String,
 ) : Serializable
