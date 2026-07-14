@@ -1,5 +1,4 @@
 import com.platformlib.plugins.gradle.wrapper.task.DockerTask
-import org.gradle.api.tasks.util.PatternFilterable
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.Duration
 
@@ -31,21 +30,6 @@ octopusQuality {
     coverage {
         // Repo has no jacoco/kover wiring — keep coverage gate disabled.
         enabled.set(false)
-    }
-}
-
-// octopus-quality wires ktlint with a filter that excludes "**/build/**" to skip the Gradle
-// build output dir. This repo's package path (org.octopusden.octopus.build.integration...)
-// contains a literal "build" directory segment, so that glob matches every source file and
-// ktlint would run hollow (0 files). Re-scope the exclusion to the actual build output
-// directory so ktlint analyses the sources again.
-run {
-    val buildDirPath = layout.buildDirectory
-        .get()
-        .asFile.absolutePath
-    tasks.matching { it.name.startsWith("runKtlint") }.configureEach {
-        (this as PatternFilterable).setExcludes(listOf("**/generated/**"))
-        exclude { it.file.absolutePath.startsWith(buildDirPath) }
     }
 }
 
