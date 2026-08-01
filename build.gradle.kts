@@ -23,6 +23,22 @@ group = "org.octopusden.octopus"
 description = "Octopus module for build integration gradle plugin"
 
 octopusQuality {
+    // Regression guard on what this repository publishes to Maven Central, provided by the
+    // shared policy from octopus-base v2.7.0. The `java-gradle-plugin` marker publication has
+    // an empty `[]` signature (a bare POM, no attached artifacts) and its groupId
+    // (`org.octopusden.octopus-build-integration`, hyphen after octopus) differs from the main
+    // publication's group (`org.octopusden.octopus`, no suffix).
+    publication {
+        enforceCentralPublications.set(true)
+        centralPublications.set(
+            setOf(
+                ":|pluginMaven|org.octopusden.octopus:octopus-build-integration-gradle-plugin|" +
+                    "[jar, jar:javadoc, jar:sources]",
+                ":|buildIntegrationPluginMarkerMaven|" +
+                    "org.octopusden.octopus-build-integration:org.octopusden.octopus-build-integration.gradle.plugin|[]",
+            ),
+        )
+    }
     kotlin {
         // Blocking mode; the committed detekt/ktlint baselines absorb current debt.
         failOnViolation.set(true)
