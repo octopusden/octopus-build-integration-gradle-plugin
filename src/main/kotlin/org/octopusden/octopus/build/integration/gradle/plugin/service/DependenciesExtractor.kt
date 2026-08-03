@@ -7,23 +7,22 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.octopusden.octopus.build.integration.gradle.plugin.extension.Component
 import org.octopusden.octopus.components.registry.light.client.ComponentsRegistryServiceClient
+import org.octopusden.octopus.components.registry.light.client.dto.ArtifactDependency
 import org.octopusden.octopus.components.registry.light.client.impl.ClassicComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.light.client.impl.ClassicComponentsRegistryServiceClientUrlProvider
-import org.octopusden.octopus.components.registry.light.client.dto.ArtifactDependency
 import org.slf4j.LoggerFactory
 
 class DependenciesExtractor(
     private val project: Project,
     private val componentsRegistryUrl: String,
     projectsPattern: String,
-    configurationsPattern: String
+    configurationsPattern: String,
 ) {
-
     private val componentsRegistryClient: ComponentsRegistryServiceClient =
         ClassicComponentsRegistryServiceClient(
             object : ClassicComponentsRegistryServiceClientUrlProvider {
                 override fun getApiUrl(): String = componentsRegistryUrl
-            }
+            },
         )
 
     private val projectsRegex = projectsPattern.toRegex()
@@ -32,19 +31,25 @@ class DependenciesExtractor(
 
     fun extract(): Set<Component> {
         val artifacts = getDependenciesFromGradle().map { ArtifactDependency(it.group, it.module, it.version) }.toSet()
-        return if (artifacts.isEmpty()) emptySet()
-        else try {
-            artifacts.chunked(50).flatMap { chunk ->
-                componentsRegistryClient.findArtifactComponentsByArtifacts(chunk.toSet()).artifactComponents.mapNotNull {
-                    if (it.component == null)
-                        logger.warn("DependenciesExtractor: Component not found by artifact {}", it.artifact)
-                    it.component?.let { component ->
-                        Component(component.id, component.version)
-                    }
-                }
-            }.toSet()
-        } catch (e: Exception) {
-            throw GradleException("Failed to query Components Registry at '$componentsRegistryUrl': ${e.message}", e)
+        return if (artifacts.isEmpty()) {
+            emptySet()
+        } else {
+            try {
+                artifacts
+                    .chunked(50)
+                    .flatMap { chunk ->
+                        componentsRegistryClient.findArtifactComponentsByArtifacts(chunk.toSet()).artifactComponents.mapNotNull {
+                            if (it.component == null) {
+                                logger.warn("DependenciesExtractor: Component not found by artifact {}", it.artifact)
+                            }
+                            it.component?.let { component ->
+                                Component(component.id, component.version)
+                            }
+                        }
+                    }.toSet()
+            } catch (e: Exception) {
+                throw GradleException("Failed to query Components Registry at '$componentsRegistryUrl': ${e.message}", e)
+            }
         }
     }
 
@@ -57,20 +62,25 @@ class DependenciesExtractor(
                 }
         logger.info(
             "DependenciesExtractor: Using configurations {}",
-            configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" }
+            configurationsByProject.map { (project, config) -> "${project.path}:${config.name}" },
         )
-        return configurationsByProject.flatMap { (subProject, gradleConfig) ->
-            extractDependenciesFromConfiguration(subProject, gradleConfig)
-        }.toSet()
+        return configurationsByProject
+            .flatMap { (subProject, gradleConfig) ->
+                extractDependenciesFromConfiguration(subProject, gradleConfig)
+            }.toSet()
     }
 
-    private fun extractDependenciesFromConfiguration(project: Project, gradleConfig: Configuration): Set<ModuleComponentIdentifier> {
+    private fun extractDependenciesFromConfiguration(
+        project: Project,
+        gradleConfig: Configuration,
+    ): Set<ModuleComponentIdentifier> {
         logger.info("DependenciesExtractor: Extract dependencies for configuration '{}'", gradleConfig.name)
         gradleConfig.allDependencies.forEach {
             if (it.version == null) {
                 logger.warn(
                     "DependenciesExtractor: Dependency {}:{} has no version declared, this may lead to conflicts or unexpected resolution behaviour",
-                    it.group, it.name
+                    it.group,
+                    it.name,
                 )
             }
         }
@@ -83,13 +93,17 @@ class DependenciesExtractor(
                 extendsFrom(gradleConfig)
                 logger.debug(
                     "DependenciesExtractor: Created resolvable configuration '{}:{}' extending '{}'",
-                    project.path, resolvableName, gradleConfig.name
+                    project.path,
+                    resolvableName,
+                    gradleConfig.name,
                 )
             }
         val allResolvedIds = resolvableConfig.incoming.resolutionResult.allDependencies.mapNotNull {
             if (it is ResolvedDependencyResult && it.selected.id is ModuleComponentIdentifier) {
                 it.selected.id as ModuleComponentIdentifier
-            } else null
+            } else {
+                null
+            }
         }
         val supportedGroupIds = try {
             componentsRegistryClient.getSupportedGroupIds()
@@ -111,7 +125,10 @@ class DependenciesExtractor(
         return passed
     }
 
-    private fun matchesSupportedGroups(id: ModuleComponentIdentifier, supportedGroupIds: Set<String>): Boolean {
+    private fun matchesSupportedGroups(
+        id: ModuleComponentIdentifier,
+        supportedGroupIds: Set<String>,
+    ): Boolean {
         val passed = supportedGroupIds.any { id.group.startsWith(it) }
         logger.debug("DependenciesExtractor: SupportedGroups filter {} passed={}", id, passed)
         return passed
@@ -120,5 +137,4 @@ class DependenciesExtractor(
     companion object {
         private val logger = LoggerFactory.getLogger(DependenciesExtractor::class.java)
     }
-
 }

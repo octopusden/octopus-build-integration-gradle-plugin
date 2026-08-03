@@ -7,9 +7,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class ReleaseDependenciesExtensionTest {
-
-    private val extension = ProjectBuilder.builder().build()
-        .objects.newInstance(ReleaseDependenciesExtension::class.java)
+    private val extension = ProjectBuilder
+        .builder()
+        .build()
+        .objects
+        .newInstance(ReleaseDependenciesExtension::class.java)
 
     @Test
     fun `string form rejects more than two segments`() {
@@ -44,9 +46,9 @@ class ReleaseDependenciesExtensionTest {
             setOf(
                 Component("a", "1.0.0"),
                 Component("b", "2.0.0"),
-                Component("c", "3.0.0")
+                Component("c", "3.0.0"),
             ),
-            extension.components.get()
+            extension.components.get(),
         )
     }
 }
