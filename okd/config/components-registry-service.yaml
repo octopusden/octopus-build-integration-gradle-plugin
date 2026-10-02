@@ -35,6 +35,16 @@ repositoryPath: /whiskey-builds
 supportedGroupIds: org.octopusden
 supportedSystems: NONE,CLASSIC
 
+# CRS 3.0.11+ refuses to boot in DB mode (ft-db) without these. Throwaway ids,
+# same as CRS's own automation fixture — the plugin never touches TC validation.
+teamcity:
+  validation:
+    gradle-build-template-id: FT_GRADLE_TEMPLATE
+    maven-build-template-id: FT_MAVEN_TEMPLATE
+    release-family-template-ids:
+      - FT_RELEASE_TEMPLATE
+    gradle-default-build-step-id: FT_GRADLE_STEP
+    maven-default-build-step-id: FT_MAVEN_STEP
 
 logging:
   level:
