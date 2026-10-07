@@ -1,5 +1,6 @@
 import com.platformlib.plugins.gradle.wrapper.task.DockerTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import java.time.Duration
 
 plugins {
@@ -79,6 +80,17 @@ java {
 
 kotlin {
     compilerOptions.jvmTarget = JvmTarget.JVM_1_8
+    // The Kotlin Gradle plugin (kotlin-plugin.version) is newer than the Kotlin runtime this plugin
+    // ships with (kotlin.version). Hold the compiler to the runtime's level so the bytecode and
+    // metadata stay what consumers can read, and no call can reach a stdlib API newer than the
+    // stdlib on the classpath.
+    compilerOptions {
+        languageVersion.set(KotlinVersion.KOTLIN_1_9)
+        apiVersion.set(KotlinVersion.KOTLIN_1_9)
+    }
+    // Version the plugin gives kotlin-stdlib / kotlin-reflect and its own constraints on them;
+    // it defaults to the plugin's version, which would leak into the published POM/module.
+    coreLibrariesVersion = providers.gradleProperty("kotlin.version").get()
 }
 
 ext {
@@ -156,6 +168,13 @@ ocTemplate {
             ),
         )
     }
+}
+
+// On Gradle 9, java-gradle-plugin turns stricter validation on for a plugin project that applies a
+// publishing plugin (maven-publish here), which also requires every task type to declare why it is not
+// cacheable. Keep the validation that Gradle 8 ran, so the published plugin classes stay as they are.
+tasks.validatePlugins {
+    enableStricterValidation.set(false)
 }
 
 gradlePlugin {
